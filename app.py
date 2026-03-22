@@ -44,6 +44,7 @@ def create_app(config_class=Config):
     )
 
     # ── Logging ──────────────────────────────────────────────────────────────
+    os.makedirs("logs", exist_ok=True)  # Ensure logs dir exists (e.g. on Render)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
