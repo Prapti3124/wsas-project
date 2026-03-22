@@ -358,7 +358,7 @@ async function triggerSOS(type = 'manual') {
       latitude: currentLat,
       longitude: currentLon,
       alert_type: type,
-      message: 'I need immediate help! This is an emergency.'
+      message: 'help me i am in danger.'
     });
 
     if (res.notified_contacts === 0 && res.errors && res.errors.length > 0) {

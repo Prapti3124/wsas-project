@@ -92,7 +92,7 @@ def trigger_sos():
                 maps_url = f"https://maps.google.com/?q={alert.latitude},{alert.longitude}" if alert.latitude else "Location unavailable"
                 body = (
                     f"🆘 EMERGENCY ALERT from {user.name}!\n"
-                    f"{alert.message}\n"
+                    f"help me i am in danger.\n"
                     f"Location: {maps_url}\n"
                     f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n"
                     f"Please check on them immediately!"
@@ -102,7 +102,7 @@ def trigger_sos():
                 client.messages.create(body=body, from_=from_number, to=contact.phone)
                 
                 # Make Voice Call
-                twiml = f"<Response><Say>Emergency alert from {user.name}! Please check your phone for an SMS with their location.</Say></Response>"
+                twiml = f"<Response><Say>help me i am in danger. help me i am in danger. help me i am in danger.</Say></Response>"
                 client.calls.create(twiml=twiml, to=contact.phone, from_=from_number)
                 
                 return True, "", contact.phone
