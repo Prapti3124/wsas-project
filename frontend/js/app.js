@@ -10,9 +10,29 @@ const installBtns = [document.getElementById('heroInstallBtn'), document.getElem
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  // Show all install buttons
-  installBtns.forEach(btn => btn?.classList.remove('d-none'));
+  // Show all install buttons if they meet native criteria
+  installBtns.forEach(btn => {
+    if (btn) {
+      btn.classList.remove('d-none');
+      btn.innerHTML = '<i class="fas fa-download me-2"></i>Install App';
+    }
+  });
 });
+
+// Fallback: If prompt doesn't fire after 3s, show a "How to Install" guide instead
+// especially for iOS Safari which never fires beforeinstallprompt
+setTimeout(() => {
+  if (!deferredPrompt) {
+    installBtns.forEach(btn => {
+      if (btn) {
+        btn.classList.remove('d-none');
+        btn.classList.replace('btn-success', 'btn-outline-info');
+        btn.innerHTML = '<i class="fas fa-info-circle me-2"></i>How to Install';
+        btn.onclick = () => toast('To install: Use your browser menu and look for "Install app" or "Add to Home Screen"', 'info');
+      }
+    });
+  }
+}, 3000);
 
 // Handle the install button click
 async function triggerInstall(btn) {
