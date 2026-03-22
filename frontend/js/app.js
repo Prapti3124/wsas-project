@@ -3,6 +3,35 @@
    Handles: Navigation, SOS, contacts, alerts, community, analytics
    ═══════════════════════════════════════════════════════════════════════════ */
 
+let deferredPrompt;
+const installBtns = [document.getElementById('heroInstallBtn'), document.getElementById('sidebarInstallBtn')];
+
+// Listen for the PWA install prompt
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show all install buttons
+  installBtns.forEach(btn => btn?.classList.remove('d-none'));
+});
+
+// Handle the install button click
+async function triggerInstall(btn) {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  console.log(`User response to install prompt: ${outcome}`);
+  deferredPrompt = null;
+  // Hide all install buttons
+  installBtns.forEach(btn => btn?.classList.add('d-none'));
+}
+
+// Add event listeners to install buttons after DOM loads
+document.addEventListener('DOMContentLoaded', () => {
+  installBtns.forEach(btn => {
+    btn?.addEventListener('click', () => triggerInstall(btn));
+  });
+});
+
 let currentUser = null;
 let accessToken = null;
 let refreshToken = null;
