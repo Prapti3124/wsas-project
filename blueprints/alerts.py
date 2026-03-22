@@ -9,48 +9,12 @@ import logging
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from concurrent.futures import ThreadPoolExecutor
 from extensions import db
 from models import Alert, User, EmergencyContact
 
 alerts_bp = Blueprint("alerts", __name__)
 logger = logging.getLogger(__name__)
-
-
-def send_sms_and_voice(to_phone, user_name, latitude, longitude, message=""):
-    """Send SMS and Voice Call via Twilio. Returns (success_bool, error_msg)."""
-    try:
-        from twilio.rest import Client
-        account_sid = current_app.config["TWILIO_ACCOUNT_SID"]
-        auth_token  = current_app.config["TWILIO_AUTH_TOKEN"]
-        from_number = current_app.config["TWILIO_PHONE_NUMBER"]
-
-        if not account_sid or not auth_token:
-            logger.warning("Twilio credentials not configured. SOS not sent.")
-            return False, "Twilio credentials not configured."
-
-        client = Client(account_sid, auth_token)
-        maps_url = f"https://maps.google.com/?q={latitude},{longitude}" if latitude else "Location unavailable"
-        body = (
-            f"🆘 EMERGENCY ALERT from {user_name}!\n"
-            f"{message}\n"
-            f"Location: {maps_url}\n"
-            f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n"
-            f"Please check on them immediately!"
-        )
-        
-        # Send SMS
-        client.messages.create(body=body, from_=from_number, to=to_phone)
-        
-        # Make Voice Call
-        twiml = f"<Response><Say>Emergency alert from {user_name}! Please check your phone for an SMS with their location.</Say></Response>"
-        client.calls.create(twiml=twiml, to=to_phone, from_=from_number)
-        
-        logger.info(f"SMS and Voice call sent to {to_phone}")
-        return True, ""
-    except Exception as e:
-        logger.error(f"Twilio error for {to_phone}: {e}")
-        return False, str(e)
-
 
 
 # ─── Trigger SOS Alert ────────────────────────────────────────────────────────
@@ -99,22 +63,61 @@ def trigger_sos():
     db.session.add(alert)
     db.session.flush()  # Get alert ID before commit
 
-    # Notify emergency contacts
+    # Notify emergency contacts in parallel
     contacts = EmergencyContact.query.filter_by(user_id=user_id).all()
     notified = []
     errors = []
-    for contact in contacts:
-        success, err_msg = send_sms_and_voice(
-            to_phone   = contact.phone,
-            user_name  = user.name,
-            latitude   = alert.latitude,
-            longitude  = alert.longitude,
-            message    = alert.message
-        )
-        if success:
-            notified.append(contact.phone)
-        else:
-            errors.append(err_msg)
+    
+    if contacts:
+        # We pass necessary config to avoid accessing current_app inside threads
+        twilio_config = {
+            "account_sid": current_app.config["TWILIO_ACCOUNT_SID"],
+            "auth_token":  current_app.config["TWILIO_AUTH_TOKEN"],
+            "from_number": current_app.config["TWILIO_PHONE_NUMBER"]
+        }
+        
+        def notify_single_contact(contact):
+            """Helper to send alert to one contact in a thread."""
+            try:
+                # Import Twilio inside to ensure thread safety if needed
+                from twilio.rest import Client
+                account_sid = twilio_config["account_sid"]
+                auth_token  = twilio_config["auth_token"]
+                from_number = twilio_config["from_number"]
+                
+                if not account_sid or not auth_token:
+                    return False, "Twilio credentials not configured.", contact.phone
+
+                client = Client(account_sid, auth_token)
+                maps_url = f"https://maps.google.com/?q={alert.latitude},{alert.longitude}" if alert.latitude else "Location unavailable"
+                body = (
+                    f"🆘 EMERGENCY ALERT from {user.name}!\n"
+                    f"{alert.message}\n"
+                    f"Location: {maps_url}\n"
+                    f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n"
+                    f"Please check on them immediately!"
+                )
+                
+                # Send SMS
+                client.messages.create(body=body, from_=from_number, to=contact.phone)
+                
+                # Make Voice Call
+                twiml = f"<Response><Say>Emergency alert from {user.name}! Please check your phone for an SMS with their location.</Say></Response>"
+                client.calls.create(twiml=twiml, to=contact.phone, from_=from_number)
+                
+                return True, "", contact.phone
+            except Exception as e:
+                return False, str(e), contact.phone
+
+        # Use ThreadPoolExecutor to run notifications concurrently
+        with ThreadPoolExecutor(max_workers=len(contacts)) as executor:
+            results = list(executor.map(notify_single_contact, contacts))
+            
+        for success, err_msg, phone in results:
+            if success:
+                notified.append(phone)
+            else:
+                errors.append(f"{phone}: {err_msg}")
 
     alert.notified_contacts = json.dumps(notified)
     db.session.commit()
