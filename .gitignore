@@ -1,0 +1,50 @@
+# Environment variables (NEVER commit these - contain secrets!)
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Database files
+instance/
+*.db
+*.sqlite
+
+# Log files (may contain sensitive data)
+logs/
+*.log
+
+# Large binary files
+*.exe
+*.dll
+
+# Tunnel/temporary files
+tunnel*.txt
+lt*.txt
+lt2.txt
+lt3.txt
+cf.txt
+serveo.txt
+pinggy.log
+tunnel_url.txt
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

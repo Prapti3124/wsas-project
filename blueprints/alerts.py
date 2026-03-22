@@ -1,0 +1,219 @@
+"""
+WSAS Alerts Blueprint
+Handles: SOS trigger, alert history, Twilio SMS/call notifications,
+         status updates, emergency contacts CRUD.
+"""
+
+import json
+import logging
+from datetime import datetime, timedelta
+from flask import Blueprint, request, jsonify, current_app
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from extensions import db
+from models import Alert, User, EmergencyContact
+
+alerts_bp = Blueprint("alerts", __name__)
+logger = logging.getLogger(__name__)
+
+
+def send_sms_and_voice(to_phone, user_name, latitude, longitude, message=""):
+    """Send SMS and Voice Call via Twilio. Returns (success_bool, error_msg)."""
+    try:
+        from twilio.rest import Client
+        account_sid = current_app.config["TWILIO_ACCOUNT_SID"]
+        auth_token  = current_app.config["TWILIO_AUTH_TOKEN"]
+        from_number = current_app.config["TWILIO_PHONE_NUMBER"]
+
+        if not account_sid or not auth_token:
+            logger.warning("Twilio credentials not configured. SOS not sent.")
+            return False, "Twilio credentials not configured."
+
+        client = Client(account_sid, auth_token)
+        maps_url = f"https://maps.google.com/?q={latitude},{longitude}" if latitude else "Location unavailable"
+        body = (
+            f"🆘 EMERGENCY ALERT from {user_name}!\n"
+            f"{message}\n"
+            f"Location: {maps_url}\n"
+            f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n"
+            f"Please check on them immediately!"
+        )
+        
+        # Send SMS
+        client.messages.create(body=body, from_=from_number, to=to_phone)
+        
+        # Make Voice Call
+        twiml = f"<Response><Say>Emergency alert from {user_name}! Please check your phone for an SMS with their location.</Say></Response>"
+        client.calls.create(twiml=twiml, to=to_phone, from_=from_number)
+        
+        logger.info(f"SMS and Voice call sent to {to_phone}")
+        return True, ""
+    except Exception as e:
+        logger.error(f"Twilio error for {to_phone}: {e}")
+        return False, str(e)
+
+
+
+# ─── Trigger SOS Alert ────────────────────────────────────────────────────────
+@alerts_bp.route("/sos", methods=["POST"])
+@jwt_required()
+def trigger_sos():
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+    data = request.get_json(silent=True) or {}
+
+    # Rate limiting: prevent alert spam
+    cooldown = current_app.config.get("ALERT_COOLDOWN_SECONDS", 60)
+    recent = Alert.query.filter(
+        Alert.user_id == user_id,
+        Alert.created_at >= datetime.utcnow() - timedelta(seconds=cooldown),
+        Alert.status == "active"
+    ).first()
+    if recent:
+        return jsonify({"error": "Alert cooldown active. Please wait."}), 429
+
+    # Get risk score from AI module
+    risk_score = 0.0
+    try:
+        from ai.risk_engine import RiskEngine
+        engine = RiskEngine()
+        risk_data = engine.calculate_risk(
+            user_id=user_id,
+            latitude=data.get("latitude"),
+            longitude=data.get("longitude")
+        )
+        risk_score = risk_data["score"]
+    except Exception as e:
+        logger.warning(f"Risk engine error: {e}")
+
+    # Create alert record
+    alert = Alert(
+        user_id    = user_id,
+        alert_type = data.get("alert_type", "manual"),
+        latitude   = data.get("latitude"),
+        longitude  = data.get("longitude"),
+        address    = data.get("address", ""),
+        message    = data.get("message", "I need help!"),
+        risk_score = risk_score,
+        status     = "active"
+    )
+    db.session.add(alert)
+    db.session.flush()  # Get alert ID before commit
+
+    # Notify emergency contacts
+    contacts = EmergencyContact.query.filter_by(user_id=user_id).all()
+    notified = []
+    errors = []
+    for contact in contacts:
+        success, err_msg = send_sms_and_voice(
+            to_phone   = contact.phone,
+            user_name  = user.name,
+            latitude   = alert.latitude,
+            longitude  = alert.longitude,
+            message    = alert.message
+        )
+        if success:
+            notified.append(contact.phone)
+        else:
+            errors.append(err_msg)
+
+    alert.notified_contacts = json.dumps(notified)
+    db.session.commit()
+
+    logger.info(f"SOS Alert #{alert.id} triggered by user {user_id}. "
+                f"Notified: {len(notified)} contacts. Errors: {len(errors)}. Risk: {risk_score}")
+
+    return jsonify({
+        "message": "SOS Alert triggered",
+        "alert": alert.to_dict(),
+        "notified_contacts": len(notified),
+        "errors": errors,
+        "risk_score": risk_score
+    }), 201
+
+
+# ─── Get Alert History ────────────────────────────────────────────────────────
+@alerts_bp.route("/history", methods=["GET"])
+@jwt_required()
+def alert_history():
+    user_id = int(get_jwt_identity())
+    page  = request.args.get("page", 1, type=int)
+    limit = min(request.args.get("limit", 10, type=int), 50)
+
+    alerts = Alert.query.filter_by(user_id=user_id)\
+                        .order_by(Alert.created_at.desc())\
+                        .paginate(page=page, per_page=limit, error_out=False)
+
+    return jsonify({
+        "alerts": [a.to_dict() for a in alerts.items],
+        "total": alerts.total,
+        "pages": alerts.pages,
+        "current_page": page
+    }), 200
+
+
+# ─── Update Alert Status ─────────────────────────────────────────────────────
+@alerts_bp.route("/<int:alert_id>/status", methods=["PUT"])
+@jwt_required()
+def update_alert_status(alert_id):
+    user_id = int(get_jwt_identity())
+    alert = Alert.query.filter_by(id=alert_id, user_id=user_id).first()
+    if not alert:
+        return jsonify({"error": "Alert not found"}), 404
+
+    data   = request.get_json(silent=True) or {}
+    status = data.get("status", "resolved")
+    if status not in ("active", "resolved", "false_alarm"):
+        return jsonify({"error": "Invalid status"}), 422
+
+    alert.status = status
+    db.session.commit()
+    return jsonify({"message": "Alert status updated", "alert": alert.to_dict()}), 200
+
+
+# ─── Emergency Contacts CRUD ─────────────────────────────────────────────────
+@alerts_bp.route("/contacts", methods=["GET"])
+@jwt_required()
+def get_contacts():
+    user_id = int(get_jwt_identity())
+    contacts = EmergencyContact.query.filter_by(user_id=user_id).all()
+    return jsonify({"contacts": [c.to_dict() for c in contacts]}), 200
+
+
+@alerts_bp.route("/contacts", methods=["POST"])
+@jwt_required()
+def add_contact():
+    user_id = int(get_jwt_identity())
+    max_contacts = current_app.config.get("MAX_CONTACTS", 5)
+
+    existing = EmergencyContact.query.filter_by(user_id=user_id).count()
+    if existing >= max_contacts:
+        return jsonify({"error": f"Maximum {max_contacts} contacts allowed"}), 400
+
+    data = request.get_json(silent=True) or {}
+    name  = str(data.get("name", "")).strip()
+    phone = str(data.get("phone", "")).strip()
+
+    if not name or not phone:
+        return jsonify({"error": "Name and phone required"}), 422
+
+    contact = EmergencyContact(
+        user_id  = user_id,
+        name     = name,
+        phone    = phone,
+        relation = data.get("relation", "")
+    )
+    db.session.add(contact)
+    db.session.commit()
+    return jsonify({"message": "Contact added", "contact": contact.to_dict()}), 201
+
+
+@alerts_bp.route("/contacts/<int:contact_id>", methods=["DELETE"])
+@jwt_required()
+def delete_contact(contact_id):
+    user_id = int(get_jwt_identity())
+    contact = EmergencyContact.query.filter_by(id=contact_id, user_id=user_id).first()
+    if not contact:
+        return jsonify({"error": "Contact not found"}), 404
+    db.session.delete(contact)
+    db.session.commit()
+    return jsonify({"message": "Contact deleted"}), 200
