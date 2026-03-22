@@ -78,8 +78,11 @@ def trigger_sos():
         
         def notify_single_contact(contact):
             """Helper to send alert to one contact in a thread."""
+            contact_success = {"sms": False, "call": False}
+            contact_errors = []
+            phone = "".join(contact.phone.split()) # Strip all whitespace
+            
             try:
-                # Import Twilio inside to ensure thread safety if needed
                 from twilio.rest import Client
                 account_sid = twilio_config["account_sid"]
                 auth_token  = twilio_config["auth_token"]
@@ -98,15 +101,31 @@ def trigger_sos():
                     f"Please check on them immediately!"
                 )
                 
-                # Send SMS
-                client.messages.create(body=body, from_=from_number, to=contact.phone)
+                # 1. Send SMS
+                try:
+                    client.messages.create(body=body, from_=from_number, to=phone)
+                    contact_success["sms"] = True
+                    logger.info(f"SMS sent successfully to {phone}")
+                except Exception as sms_e:
+                    logger.error(f"SMS failed for {phone}: {sms_e}")
+                    contact_errors.append(f"SMS: {str(sms_e)}")
                 
-                # Make Voice Call
-                twiml = f"<Response><Say>help me i am in danger. help me i am in danger. help me i am in danger.</Say></Response>"
-                client.calls.create(twiml=twiml, to=contact.phone, from_=from_number)
+                # 2. Make Voice Call
+                try:
+                    twiml = f"<Response><Say>help me i am in danger. help me i am in danger. help me i am in danger.</Say></Response>"
+                    client.calls.create(twiml=twiml, to=phone, from_=from_number)
+                    contact_success["call"] = True
+                    logger.info(f"Voice call initiated for {phone}")
+                except Exception as call_e:
+                    logger.error(f"Voice call failed for {phone}: {call_e}")
+                    contact_errors.append(f"Call: {str(call_e)}")
                 
-                return True, "", contact.phone
+                overall_success = contact_success["sms"] or contact_success["call"]
+                err_msg = "; ".join(contact_errors)
+                return overall_success, err_msg, contact.phone
+
             except Exception as e:
+                logger.error(f"Critical thread error for {contact.phone}: {e}")
                 return False, str(e), contact.phone
 
         # Use ThreadPoolExecutor to run notifications concurrently

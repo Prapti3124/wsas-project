@@ -423,8 +423,8 @@ async function addContact() {
   const relation = document.getElementById('contactRelation').value.trim();
   if (!name || !rawPhone) return toast('Name and phone are required.', 'warning');
 
-  // Format the phone number dynamically
-  let phone = rawPhone.startsWith('+') ? rawPhone : code + rawPhone.replace(/^0+/, '');
+  // Format the phone number dynamically and strip all whitespace
+  let phone = (rawPhone.startsWith('+') ? rawPhone : code + rawPhone.replace(/^0+/, '')).replace(/\s+/g, '');
 
   try {
     await api.post('/alerts/contacts', { name, phone, relation });
