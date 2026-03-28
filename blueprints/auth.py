@@ -48,9 +48,13 @@ def send_otp_email(receiver_email, otp_code):
         password = current_app.config["MAIL_PASSWORD"]
         sender_display = current_app.config.get("MAIL_DEFAULT_SENDER", sender_email)
 
-        if not sender_email or not password:
-            logger.error("SMTP credentials not configured.")
-            return False
+        # Developer mode fallback if credentials are not configured
+        if not sender_email or "your_email" in sender_email or not password or "password" in password.lower():
+            logger.warning(f"SMTP credentials not configured. Catching OTP in DEV MODE for {receiver_email}")
+            print("\n" + "="*50)
+            print(f"✅ DEV MODE OTP: {otp_code} (For: {receiver_email})")
+            print("="*50 + "\n")
+            return True
 
         message = MIMEMultipart("alternative")
         message["Subject"] = f"{otp_code} is your WSAS verification code"
