@@ -4,144 +4,168 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --pink: #e91e8c;
-  --pink-dark: #c4177a;
-  --pink-light: #ff6ec7;
+  --pink: #db2777;
+  --pink-dark: #be185d;
+  --pink-light: #f472b6;
+  --violet: #7c3aed;
+  --violet-dark: #5b21b6;
+  --violet-light: #a78bfa;
   --dark: #0f0f1a;
-  --dark2: #1a1a2e;
-  --dark3: #16213e;
+  --dark2: #16162a;
+  --dark3: #1c1c3c;
   --card-bg: #1e1e3a;
   --text: #e8e8f0;
-  --text-muted: #9090b0;
-  --success: #00d4aa;
-  --warning: #ffa726;
-  --danger: #ef5350;
+  --text-muted: #95a5a6;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* ... existing utilities ... */
+
+/* ── NEW AUTH REDESIGN ─────────────────────────────────────────────────────── */
+.auth-split-card {
+  background: #ffffff;
+  border-radius: 24px;
+  overflow: hidden;
+  display: flex;
+  width: 100%;
+  max-width: 950px;
+  min-height: 550px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  color: #333;
 }
 
-body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: var(--dark);
-  color: var(--text);
-  min-height: 100vh;
+.auth-form-side {
+  width: 50%;
+  padding: 50px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #fff;
 }
 
-/* ── UTILITIES ─────────────────────────────────────────────────────────────── */
-.text-muted,
-.text-secondary {
-  color: rgba(255, 255, 255, 0.65) !important;
-}
-
-.form-control::placeholder,
-.form-select::placeholder,
-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.4) !important;
-}
-
-.text-pink {
-  color: var(--pink) !important;
-}
-
-.bg-pink {
-  background: var(--pink) !important;
-}
-
-.btn-pink {
-  background: var(--pink);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.btn-pink:hover {
-  background: var(--pink-dark);
-  color: #fff;
-  transform: translateY(-1px);
-}
-
-.btn-outline-pink {
-  border: 2px solid var(--pink);
-  color: var(--pink);
-  background: transparent;
-  border-radius: 8px;
-}
-
-.btn-outline-pink:hover {
-  background: var(--pink);
-  color: #fff;
-}
-
-/* ── NAVBAR ────────────────────────────────────────────────────────────────── */
-.wsas-nav {
-  background: rgba(15, 15, 26, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(233, 30, 140, 0.3);
-  padding: 12px 0;
-}
-
-.wsas-nav .navbar-brand {
-  font-size: 1.4rem;
-  letter-spacing: 1px;
-}
-
-/* ── HERO ──────────────────────────────────────────────────────────────────── */
-.hero-section {
-  min-height: 100vh;
-  background: linear-gradient(135deg, var(--dark) 0%, var(--dark3) 50%, #1a0a2e 100%);
+.auth-brand-side {
+  width: 50%;
+  background: var(--violet);
+  background: linear-gradient(135deg, var(--violet) 0%, #4c1d95 100%);
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
   overflow: hidden;
-  padding: 100px 0 60px;
 }
 
-.hero-section::before {
+/* Abstract circles for brand side */
+.auth-brand-side::before, 
+.auth-brand-side::after {
   content: '';
   position: absolute;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(233, 30, 140, 0.15) 0%, transparent 70%);
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation: pulse-glow 4s ease-in-out infinite;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+.auth-brand-side::before { width: 300px; height: 300px; top: -100px; right: -50px; }
+.auth-brand-side::after { width: 200px; height: 200px; bottom: -50px; left: -50px; }
+
+.glass-frame {
+  width: 80%;
+  height: 80%;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
 }
 
-@keyframes pulse-glow {
-
-  0%,
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.6;
-  }
-
-  50% {
-    transform: translate(-50%, -50%) scale(1.1);
-    opacity: 1;
-  }
+.glass-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.9;
 }
 
-.hero-overlay {
+.brand-icon-float {
   position: absolute;
-  inset: 0;
-  background: transparent;
+  top: 50%;
+  left: -20px;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 50px;
+  background: #fff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+  z-index: 3;
 }
 
-.feature-pill {
-  background: rgba(233, 30, 140, 0.15);
-  border: 1px solid rgba(233, 30, 140, 0.4);
-  border-radius: 50px;
-  padding: 6px 16px;
-  font-size: 0.85rem;
-  color: var(--pink-light);
-  backdrop-filter: blur(4px);
+.auth-form-side h2 {
+  font-weight: 800;
+  font-size: 2rem;
+  margin-bottom: 8px;
+  color: #1a1a1a;
+}
+
+.auth-form-side .form-control {
+  background: #f8fafc !important;
+  border: 1.5px solid #e2e8f0 !important;
+  color: #1e293b !important;
+  padding: 12px 16px;
+  font-size: 1rem;
+}
+
+.auth-form-side .form-control:focus {
+  border-color: var(--violet) !important;
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1) !important;
+}
+
+.btn-auth-now {
+  background: var(--violet);
+  background: linear-gradient(to right, var(--violet), var(--violet-dark));
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  padding: 12px;
+  border-radius: 12px;
+  transition: all 0.3s;
+}
+
+.btn-auth-now:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3);
+  color: #fff;
+}
+
+.social-login-btn {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-decoration: none;
+  color: #475569;
+  font-weight: 500;
+  transition: all 0.2s;
+  background: #fff;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.social-login-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+@media (max-width: 900px) {
+  .auth-brand-side { display: none; }
+  .auth-form-side { width: 100%; padding: 30px; }
+  .auth-split-card { max-width: 450px; margin: 20px; }
 }
 
 /* ── AUTH SECTIONS ────────────────────────────────────────────────────────── */

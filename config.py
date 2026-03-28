@@ -38,6 +38,18 @@ class Config:
     TWILIO_AUTH_TOKEN   = os.getenv("TWILIO_AUTH_TOKEN",   "")
     TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 
+    # ── Google OAuth ──────────────────────────────────────────────────────────
+    GOOGLE_CLIENT_ID    = os.getenv("GOOGLE_CLIENT_ID",    "")
+    GOOGLE_CLIENT_SECRET= os.getenv("GOOGLE_CLIENT_SECRET", "")
+
+    # ── Email / SMTP ──────────────────────────────────────────────────────────
+    MAIL_SERVER         = os.getenv("MAIL_SERVER",         "smtp.gmail.com")
+    MAIL_PORT           = int(os.getenv("MAIL_PORT",       587))
+    MAIL_USE_TLS        = os.getenv("MAIL_USE_TLS",        "true").lower() == "true"
+    MAIL_USERNAME       = os.getenv("MAIL_USERNAME",       "")
+    MAIL_PASSWORD       = os.getenv("MAIL_PASSWORD",       "")
+    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "")
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 

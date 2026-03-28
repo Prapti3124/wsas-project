@@ -18,8 +18,12 @@ class User(db.Model):
     id           = db.Column(db.Integer, primary_key=True)
     name         = db.Column(db.String(100), nullable=False)
     email        = db.Column(db.String(150), unique=True, nullable=False, index=True)
-    password_hash= db.Column(db.String(256), nullable=False)
-    phone        = db.Column(db.String(20), nullable=False)
+    password_hash= db.Column(db.String(256), nullable=True) # Nullable for Google users
+    phone        = db.Column(db.String(20), nullable=True) # Nullable initially
+    google_id    = db.Column(db.String(150), unique=True, nullable=True)
+    is_email_verified = db.Column(db.Boolean, default=False)
+    otp_code     = db.Column(db.String(10), nullable=True)
+    otp_expiry   = db.Column(db.DateTime, nullable=True)
     alternate_phone = db.Column(db.String(20), nullable=True)
     address      = db.Column(db.Text, nullable=True)
     profile_photo= db.Column(db.Text, nullable=True)

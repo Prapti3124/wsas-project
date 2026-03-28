@@ -59,6 +59,36 @@ let currentLat = null;
 let currentLon = null;
 let sosHoldTimer = null;
 
+// Persistent Login Check on Load
+document.addEventListener('DOMContentLoaded', async () => {
+  const savedUser = localStorage.getItem('wsas_user');
+  const savedToken = localStorage.getItem('wsas_token');
+  const savedRefresh = localStorage.getItem('wsas_refresh');
+
+  if (savedUser && savedToken) {
+    try {
+      currentUser = JSON.parse(savedUser);
+      accessToken = savedToken;
+      refreshToken = savedRefresh;
+      
+      // Optional: Verify token with profile request
+      // If it fails, we'll stay on landing/login
+      const profile = await api.get('/auth/profile').catch(() => null);
+      
+      if (profile) {
+        currentUser = profile; // Update with latest info
+        showSection('dashboard');
+        toast('Logged in automatically', 'success');
+      } else {
+        // Token might be expired, clear and show login
+        // logout(); 
+      }
+    } catch (e) {
+      console.error('Auto-login failed:', e);
+    }
+  }
+});
+
 /* ────────────────── SECTION NAVIGATION ─────────────────────────────────── */
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -92,6 +122,8 @@ function showSection(name) {
 }
 
 /* ────────────────── AUTH ────────────────────────────────────────────────── */
+let otpEmail = '';
+
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = document.getElementById('loginEmail').value;
@@ -102,14 +134,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   try {
     const res = await api.post('/auth/login', { email, password });
     if (res.access_token) {
-      accessToken = res.access_token;
-      refreshToken = res.refresh_token;
-      currentUser = res.user;
-      localStorage.setItem('wsas_token', accessToken);
-      localStorage.setItem('wsas_refresh', refreshToken);
-      localStorage.setItem('wsas_user', JSON.stringify(currentUser));
-      showSection('dashboard');
-      toast('Welcome back, ' + currentUser.name + '! 💙', 'success');
+      handleAuthSuccess(res);
+    } else if (res.needs_verification) {
+      startOTPFlow(res.email);
     } else {
       showError(errEl, res.error || 'Login failed');
     }
@@ -130,9 +157,9 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   };
   try {
     const res = await api.post('/auth/register', body);
-    if (res.user) {
-      toast('Account created! Please login.', 'success');
-      showSection('login');
+    if (res.email) {
+      startOTPFlow(res.email);
+      toast('OTP sent to your email!', 'info');
     } else {
       showError(errEl, JSON.stringify(res.details || res.error));
     }
@@ -140,6 +167,100 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     showError(errEl, 'Registration failed.');
   }
 });
+
+/* ────────────────── GOOGLE AUTH ────────────────────────────────────────── */
+async function handleGoogleResponse(response) {
+  try {
+    const res = await api.post('/auth/google-login', { credential: response.credential });
+    if (res.access_token) {
+      handleAuthSuccess(res);
+    } else if (res.email) {
+      startOTPFlow(res.email);
+      toast('Verification code sent to your Google email.', 'info');
+    } else {
+      toast(res.error || 'Google login failed', 'danger');
+    }
+  } catch (err) {
+    toast('Google authentication failed.', 'danger');
+  }
+}
+
+/* ────────────────── OTP FLOW ───────────────────────────────────────────── */
+function startOTPFlow(email) {
+  otpEmail = email;
+  document.getElementById('otpEmailDisplay').textContent = email;
+  showSection('otp-verify');
+  
+  // Clear previous values
+  document.querySelectorAll('.otp-dot').forEach(input => input.value = '');
+}
+
+// Auto-focus next OTP input
+document.querySelectorAll('.otp-dot').forEach((input, index, inputs) => {
+  input.addEventListener('input', () => {
+    if (input.value && index < inputs.length - 1) {
+      inputs[index + 1].focus();
+    }
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Backspace' && !input.value && index > 0) {
+      inputs[index - 1].focus();
+    }
+  });
+});
+
+document.getElementById('otpForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const dots = document.querySelectorAll('.otp-dot');
+  const otp = Array.from(dots).map(d => d.value).join('');
+  const errEl = document.getElementById('otpError');
+  errEl.classList.add('d-none');
+
+  if (otp.length !== 6) return showError(errEl, 'Please enter all 6 digits');
+
+  try {
+    const res = await api.post('/auth/verify-otp', { email: otpEmail, otp });
+    if (res.access_token) {
+      handleAuthSuccess(res);
+      toast('Verification successful!', 'success');
+    } else {
+      showError(errEl, res.error || 'Verification failed');
+    }
+  } catch (err) {
+    showError(errEl, 'Error verifying OTP');
+  }
+});
+
+async function resendOTP() {
+  if (!otpEmail) return;
+  try {
+    toast('Resending code...', 'info');
+    await api.post('/auth/register', { email: otpEmail, resend: true });
+    toast('New code sent!', 'success');
+  } catch (e) {
+    toast('Failed to resend code.', 'danger');
+  }
+}
+
+function handleAuthSuccess(res) {
+  accessToken = res.access_token;
+  refreshToken = res.refresh_token;
+  currentUser = res.user;
+  localStorage.setItem('wsas_token', accessToken);
+  localStorage.setItem('wsas_refresh', refreshToken);
+  localStorage.setItem('wsas_user', JSON.stringify(currentUser));
+  showSection('dashboard');
+  toast('Welcome back, ' + currentUser.name + '! 💙', 'success');
+}
+
+function logout() {
+  localStorage.clear();
+  accessToken = null;
+  refreshToken = null;
+  currentUser = null;
+  showSection('login');
+  toast('Logged out successfully', 'info');
+}
 
 /* ────────────────── PROFILE EDITING ──────────────────────────────────────── */
 let profileImageBase64 = null;

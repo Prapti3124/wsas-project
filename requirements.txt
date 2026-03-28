@@ -9,3 +9,4 @@ python-dotenv==1.0.1
 twilio==9.2.3
 gunicorn==22.0.0
 SQLAlchemy==2.0.31
+requests==2.32.3
