@@ -1,0 +1,9 @@
+-- index.html --
+894c881 Fix registration form layout in index.html
+1f8b18a Feature: Add In-App Install Button for PWA
+87888e0 Feature: Convert to PWA (Web App) with manifest and service worker
+801776a Initial commit - clean version without secrets
+
+-- style.css --
+894c881 Fix registration form layout in index.html
+801776a Initial commit - clean version without secrets
