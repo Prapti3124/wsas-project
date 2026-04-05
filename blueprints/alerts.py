@@ -24,6 +24,7 @@ def trigger_sos():
     user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     data = request.get_json(silent=True) or {}
+    user_name = user.name if user else "a SAKHI User"
 
     # Rate limiting: prevent alert spam
     cooldown = current_app.config.get("ALERT_COOLDOWN_SECONDS", 60)
@@ -94,7 +95,7 @@ def trigger_sos():
                 client = Client(account_sid, auth_token)
                 maps_url = f"https://maps.google.com/?q={alert.latitude},{alert.longitude}" if alert.latitude else "Location unavailable"
                 body = (
-                    f"🆘 EMERGENCY ALERT from {user.name}!\n"
+                    f"🆘 EMERGENCY ALERT from {user_name}!\n"
                     f"help me i am in danger.\n"
                     f"Location: {maps_url}\n"
                     f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n"
