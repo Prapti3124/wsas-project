@@ -1,6 +1,6 @@
 {
-  "name": "Women Safety Alert System",
-  "short_name": "WSAS",
+  "name": "SAKHI - You Me & Her",
+  "short_name": "SAKHI",
   "description": "Safe path to your destination with instant SOS alerts.",
   "start_url": "/",
   "display": "standalone",

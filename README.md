@@ -1,8 +1,8 @@
-# WSAS - Women Safety Alert System 🛡️
+# SAKHI - You Me & Her 🛡️
 
-![WSAS Banner](https://img.shields.io/badge/Status-Active-success?style=for-the-badge) ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg?style=for-the-badge&logo=python) ![Flask](https://img.shields.io/badge/Flask-Backend-black?style=for-the-badge&logo=flask) ![Twilio](https://img.shields.io/badge/Twilio-Integrated-red?style=for-the-badge&logo=twilio)
+![SAKHI Banner](https://img.shields.io/badge/Status-Active-success?style=for-the-badge) ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg?style=for-the-badge&logo=python) ![Flask](https://img.shields.io/badge/Flask-Backend-black?style=for-the-badge&logo=flask) ![Twilio](https://img.shields.io/badge/Twilio-Integrated-red?style=for-the-badge&logo=twilio)
 
-WSAS (Women Safety Alert System) is a comprehensive, AI-enhanced Progressive Web Application (PWA) built specifically for women's safety. It provides immediate, global SOS alerts to trusted emergency contacts, live location sharing, and AI-driven risk scoring. 
+SAKHI (You Me & Her) is a comprehensive, AI-enhanced Progressive Web Application (PWA) built specifically for women's safety. It provides immediate, global SOS alerts to trusted emergency contacts, live location sharing, and AI-driven risk scoring. 
 
 This project was developed as a **BCA Final Year Project**, demonstrating advanced modular backend architecture, synchronous third-party API integration, and modern frontend asynchronous design.
 
@@ -69,7 +69,7 @@ graph TD
    *The application will be universally accessible at http://127.0.0.1:5000*
 
 ### Cloud Deployment
-WSAS is configured for easy serverless/cloud deployment. Simply connect your GitHub repository to **Render**, set your Build Command to `pip install -r requirements.txt`, and your Start Command to `gunicorn app:app`.
+SAKHI is configured for easy serverless/cloud deployment. Simply connect your GitHub repository to **Render**, set your Build Command to `pip install -r requirements.txt`, and your Start Command to `gunicorn app:app`.
 
 ---
 *Built with ❤️ for a safer tomorrow.*
