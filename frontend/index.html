@@ -126,13 +126,48 @@
               <div class="password-strength mt-1" id="pwStrength"></div>
             </div>
           </div>
-          <div id="registerError" class="alert alert-danger d-none mt-3"></div>
+          <div id="registerError" class="alert alert-danger d-none mt-3" style="color: #842029 !important; font-weight: bold;"></div>
           <button type="submit" class="btn btn-pink w-100 btn-lg mt-3">
             <i class="fas fa-shield-alt me-2"></i>Create My Safe Account
           </button>
           <p class="text-center mt-2">Already registered?
             <a href="#" class="text-pink fw-bold" onclick="showSection('login')">Login</a>
           </p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  
+  <!-- ── OTP VERIFICATION ─────────────────────────────────────────────────── -->
+  <section id="otp-verify" class="auth-section d-none">
+    <div class="container">
+      <div class="auth-card mx-auto text-center">
+        <div class="auth-header">
+          <i class="fas fa-envelope-open-text fa-3x text-pink mb-3"></i>
+          <h2 class="fw-bold">Verify Your Email</h2>
+          <p class="opacity-75">We've sent a 6-digit code to <br><strong id="otpEmailDisplay">...</strong></p>
+        </div>
+        <form id="otpForm" class="p-4">
+          <div class="mb-4">
+            <div class="d-flex justify-content-center gap-2" id="otpInputContainer">
+              <input type="text" maxlength="1" class="form-control form-control-lg otp-dot" required>
+              <input type="text" maxlength="1" class="form-control form-control-lg otp-dot" required>
+              <input type="text" maxlength="1" class="form-control form-control-lg otp-dot" required>
+              <input type="text" maxlength="1" class="form-control form-control-lg otp-dot" required>
+              <input type="text" maxlength="1" class="form-control form-control-lg otp-dot" required>
+              <input type="text" maxlength="1" class="form-control form-control-lg otp-dot" required>
+            </div>
+            <input type="hidden" id="otpFullValue">
+          </div>
+          <div id="otpError" class="alert alert-danger d-none"></div>
+          <button type="submit" class="btn btn-pink w-100 btn-lg mb-3">
+            Verify & Create Account
+          </button>
+          <p class="text-center small">Didn't receive the code? 
+            <a href="#" class="text-pink fw-bold" onclick="resendOTP()">Resend Code</a>
+          </p>
+          <a href="#" class="text-muted small" onclick="showSection('login')">Back to Login</a>
         </form>
       </div>
     </div>
