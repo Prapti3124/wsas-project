@@ -127,17 +127,19 @@ def register():
         user.set_password(password)
         db.session.add(user)
 
-    # Generate OTP
-    otp = f"{random.randint(100000, 999999)}"
-    user.otp_code = otp
-    user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
-    user.is_email_verified = False # Ensure false for new/reuse
+    user.is_email_verified = True
+    user.last_login = datetime.utcnow()
     db.session.commit()
 
-    if send_otp_email(email, otp):
-        return jsonify({"message": "OTP sent to email", "email": email}), 200
-    else:
-        return jsonify({"error": "Could not send OTP email. Please try again."}), 500
+    access_token = create_access_token(identity=str(user.id), additional_claims={"role": user.role})
+    refresh_token = create_refresh_token(identity=str(user.id))
+
+    return jsonify({
+        "message": "Registration successful",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "user": user.to_dict()
+    }), 200
 
 
 # ─── Google Login/Register ────────────────────────────────────────────────────

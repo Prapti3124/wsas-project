@@ -157,7 +157,9 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   };
   try {
     const res = await api.post('/auth/register', body);
-    if (res.email) {
+    if (res.access_token) {
+      handleAuthSuccess(res);
+    } else if (res.email) {
       startOTPFlow(res.email);
       toast('OTP sent to your email!', 'info');
     } else {

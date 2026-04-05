@@ -2,7 +2,7 @@
    WSAS – Service Worker (sw.js)
    Network-First strategy for development/production.
    ═══════════════════════════════════════════════════════════════════════════ */
-const CACHE_NAME = 'wsas-v2';
+const CACHE_NAME = 'wsas-v3';
 const ASSETS = [
   '/',
   '/index.html',
