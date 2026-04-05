@@ -161,7 +161,11 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       startOTPFlow(res.email);
       toast('OTP sent to your email!', 'info');
     } else {
-      showError(errEl, JSON.stringify(res.details || res.error));
+      if (res.details) {
+        showError(errEl, Object.values(res.details).join(' • '));
+      } else {
+        showError(errEl, res.error || 'Registration failed.');
+      }
     }
   } catch (err) {
     showError(errEl, 'Registration failed.');
