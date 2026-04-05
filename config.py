@@ -34,9 +34,9 @@ class Config:
     JWT_HEADER_TYPE = "Bearer"
 
     # ── Twilio ────────────────────────────────────────────────────────────────
-    TWILIO_ACCOUNT_SID  = os.getenv("TWILIO_ACCOUNT_SID",  "")
-    TWILIO_AUTH_TOKEN   = os.getenv("TWILIO_AUTH_TOKEN",   "")
-    TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
+    TWILIO_ACCOUNT_SID  = os.getenv("TWILIO_ACCOUNT_SID",  "").strip()
+    TWILIO_AUTH_TOKEN   = os.getenv("TWILIO_AUTH_TOKEN",   "").strip()
+    TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "").strip()
 
     # ── Google OAuth ──────────────────────────────────────────────────────────
     GOOGLE_CLIENT_ID    = os.getenv("GOOGLE_CLIENT_ID",    "")
