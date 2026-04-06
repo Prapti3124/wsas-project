@@ -1,0 +1,2 @@
+Users (1 total):
+  id=1 name=Admin email=admin@wsas.com phone=+910000000000 verified=1 has_pw=1 active=1
