@@ -26,7 +26,7 @@
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(rgba(10, 10, 18, 0.25), rgba(10, 10, 18, 0.45)), url('../assets/logo.png'), #000;
+  background: linear-gradient(rgba(10, 10, 18, 0.25), rgba(10, 10, 18, 0.45)), url('../assets/sakhi-brand.png'), #000;
   background-size: 85% auto;
   background-position: center;
   background-repeat: no-repeat;
