@@ -27,8 +27,8 @@
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: url('../assets/sakhi-brand.png') #000;
-  background-size: contain;
-  background-position: center;
+  background-size: 65% auto;
+  background-position: center center;
   background-repeat: no-repeat;
   background-attachment: fixed;
   color: var(--text);
