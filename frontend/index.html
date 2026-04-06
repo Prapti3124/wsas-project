@@ -7,7 +7,7 @@
   <title>SAKHI – YOU ME & HER</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <link rel="stylesheet" href="css/main.css?v=1.1" />
+  <link rel="stylesheet" href="css/sakhi-v2.css?v=1.3" />
   <style>
     body {
       background: url('assets/sakhi-identity.png') #000 !important;
@@ -26,7 +26,6 @@
   <!-- ── NAVBAR ──────────────────────────────────────────────────────────────── -->
   <nav class="navbar navbar-expand-lg navbar-dark wsas-nav fixed-top">
     <div class="container">
-      <a class="navbar-brand fw-bold" href="#">
       <a class="navbar-brand fw-bold" href="#">
         <span class="text-pink">SAKHI</span>
         <span class="badge bg-danger ms-1 badge-sm">AI</span>
@@ -635,6 +634,15 @@
   <script src="js/shake.js"></script>
   <script src="js/map.js"></script>
   <script src="js/charts.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js?v=2').then(reg => {
+          reg.update(); // Force checking for updates
+        }).catch(err => console.log('SW registration failed:', err));
+      });
+    }
+  </script>
 </body>
 
 </html>

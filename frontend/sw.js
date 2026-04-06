@@ -2,13 +2,14 @@
    WSAS – Service Worker (sw.js)
    Network-First strategy for development/production.
    ═══════════════════════════════════════════════════════════════════════════ */
-const CACHE_NAME = 'sakhi-v1';
+const CACHE_NAME = 'sakhi-v3-final';
 const ASSETS = [
   '/',
-  '/index.html',
-  '/css/style.css',
-  '/js/app.js',
-  '/js/api.js',
+  '/index.html?v=3',
+  '/css/sakhi-v2.css',
+  '/assets/sakhi-identity.png',
+  '/js/app.js?v=3',
+  '/js/api.js?v=3',
   '/manifest.json'
 ];
 
