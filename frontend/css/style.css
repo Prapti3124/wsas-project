@@ -27,7 +27,7 @@
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: linear-gradient(rgba(15, 15, 26, 0.85), rgba(15, 15, 26, 0.95)), url('../assets/logo.png'), var(--dark);
-  background-size: 70%;
+  background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
