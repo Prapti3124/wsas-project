@@ -88,12 +88,21 @@ textarea::placeholder {
 .wsas-nav .navbar-brand {
   font-size: 1.4rem;
   letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+}
+
+.navbar-logo {
+  height: 32px;
+  margin-right: 12px;
 }
 
 /* ── HERO ──────────────────────────────────────────────────────────────────── */
 .hero-section {
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--dark) 0%, var(--dark3) 50%, #1a0a2e 100%);
+  background: linear-gradient(rgba(15, 15, 26, 0.8), rgba(15, 15, 26, 0.9)), url('../assets/logo.png');
+  background-size: cover;
+  background-position: center;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -147,7 +156,9 @@ textarea::placeholder {
 /* ── AUTH SECTIONS ────────────────────────────────────────────────────────── */
 .auth-section {
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--dark) 0%, var(--dark3) 100%);
+  background: linear-gradient(rgba(15, 15, 26, 0.85), rgba(15, 15, 26, 0.95)), url('../assets/logo.png');
+  background-size: cover;
+  background-position: center;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -167,8 +178,13 @@ textarea::placeholder {
 .auth-header {
   background: linear-gradient(135deg, var(--dark3), #1a0a2e);
   text-align: center;
-  padding: 40px 20px 20px;
+  padding: 30px 20px 20px;
   border-bottom: 1px solid rgba(233, 30, 140, 0.2);
+}
+
+.auth-logo {
+  height: 80px;
+  margin-bottom: 15px;
 }
 
 .auth-card .form-control {
