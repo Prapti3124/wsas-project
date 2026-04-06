@@ -26,8 +26,8 @@
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(rgba(10, 10, 18, 0.45), rgba(10, 10, 18, 0.65)), url('../assets/logo.png'), var(--dark);
-  background-size: cover;
+  background: linear-gradient(rgba(10, 10, 18, 0.25), rgba(10, 10, 18, 0.45)), url('../assets/logo.png'), #000;
+  background-size: 85% auto;
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
@@ -230,8 +230,8 @@ textarea::placeholder {
 .sidebar {
   width: 230px;
   min-width: 230px;
-  background: rgba(26, 26, 46, 0.7);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 15, 26, 0.4);
+  backdrop-filter: blur(12px);
   border-right: 1px solid rgba(233, 30, 140, 0.15);
   display: flex;
   flex-direction: column;
@@ -291,8 +291,8 @@ textarea::placeholder {
 }
 
 .topbar {
-  background: rgba(26, 26, 46, 0.7);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 15, 26, 0.4);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   position: sticky;
   top: 0;
@@ -385,8 +385,8 @@ textarea::placeholder {
 
 /* ── CARDS ────────────────────────────────────────────────────────────────── */
 .wsas-card {
-  background: rgba(30, 30, 58, 0.7);
-  backdrop-filter: blur(4px);
+  background: rgba(20, 20, 40, 0.4);
+  backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 20px;
