@@ -118,18 +118,36 @@ def register():
         return jsonify({"error": "Validation failed", "details": errors}), 422
 
     user = User.query.filter_by(email=email).first()
+
     if user:
         if user.is_email_verified:
+            logger.warning(f"Registration attempt for already verified email: {email}")
             return jsonify({"error": "Email already registered and verified"}), 409
-        # Reuse unverified account
+        
+        # Update existing unverified account with new registration data
+        logger.info(f"Completing registration for existing unverified account: {email}")
+        user.name = name
+        user.phone = phone
+        user.set_password(password)
     else:
+        # Create a fresh user record
+        logger.info(f"Creating new user registration: {email}")
         user = User(name=name, email=email, phone=phone)
         user.set_password(password)
         db.session.add(user)
 
+    # Finalize registration
     user.is_email_verified = True
+    user.is_active = True
     user.last_login = datetime.utcnow()
-    db.session.commit()
+    
+    try:
+        db.session.commit()
+        logger.info(f"User registration successfully persisted: {email} (ID: {user.id})")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Database commit failed during registration for {email}: {e}")
+        return jsonify({"error": "Internal server error during registration"}), 500
 
     access_token = create_access_token(identity=str(user.id), additional_claims={"role": user.role})
     refresh_token = create_refresh_token(identity=str(user.id))
