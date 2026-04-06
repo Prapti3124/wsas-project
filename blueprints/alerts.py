@@ -36,21 +36,7 @@ def trigger_sos():
     if recent:
         return jsonify({"error": "Alert cooldown active. Please wait."}), 429
 
-    # Get risk score from AI module
-    risk_score = 0.0
-    try:
-        from ai.risk_engine import RiskEngine
-        engine = RiskEngine()
-        risk_data = engine.calculate_risk(
-            user_id=user_id,
-            latitude=data.get("latitude"),
-            longitude=data.get("longitude")
-        )
-        risk_score = risk_data["score"]
-    except Exception as e:
-        logger.warning(f"Risk engine error: {e}")
-
-    # Create alert record
+    # Create alert record immediately with placeholder risk
     alert = Alert(
         user_id    = user_id,
         alert_type = data.get("alert_type", "manual"),
@@ -58,100 +44,115 @@ def trigger_sos():
         longitude  = data.get("longitude"),
         address    = data.get("address", ""),
         message    = data.get("message", "I need help!"),
-        risk_score = risk_score,
+        risk_score = 0.0, # Will be updated in background
         status     = "active"
     )
     db.session.add(alert)
-    db.session.flush()  # Get alert ID before commit
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to create alert record: {e}")
+        return jsonify({"error": "Failed to trigger SOS on server."}), 500
 
-    # Notify emergency contacts in parallel
-    contacts = EmergencyContact.query.filter_by(user_id=user_id).all()
-    notified = []
-    errors = []
-    
-    if contacts:
-        # We pass necessary config to avoid accessing current_app inside threads
-        twilio_config = {
-            "account_sid": current_app.config["TWILIO_ACCOUNT_SID"],
-            "auth_token":  current_app.config["TWILIO_AUTH_TOKEN"],
-            "from_number": current_app.config["TWILIO_PHONE_NUMBER"]
-        }
-        
-        def notify_single_contact(contact):
-            """Helper to send alert to one contact in a thread."""
-            contact_success = {"sms": False, "call": False}
-            contact_errors = []
-            phone = "".join(contact.phone.split()) # Strip all whitespace
-            
-            try:
-                from twilio.rest import Client
-                account_sid = twilio_config["account_sid"]
-                auth_token  = twilio_config["auth_token"]
-                from_number = twilio_config["from_number"]
-                
-                if not account_sid or not auth_token:
-                    return False, "Twilio credentials not configured.", contact.phone
+    # Start background processing for AI and Notifications
+    # We pass the app object to the thread to reconstruct context
+    app = current_app._get_current_object()
+    executor = ThreadPoolExecutor(max_workers=1)
+    executor.submit(process_sos_background, app, alert.id, data)
 
-                client = Client(account_sid, auth_token)
-                maps_url = f"https://maps.google.com/?q={alert.latitude},{alert.longitude}" if alert.latitude else "Location unavailable"
-                body = (
-                    f"🆘 EMERGENCY ALERT from {user_name}!\n"
-                    f"help me i am in danger.\n"
-                    f"Location: {maps_url}\n"
-                    f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n"
-                    f"Please check on them immediately!"
-                )
-                
-                # 1. Send SMS
-                try:
-                    client.messages.create(body=body, from_=from_number, to=phone)
-                    contact_success["sms"] = True
-                    logger.info(f"SMS sent successfully to {phone}")
-                except Exception as sms_e:
-                    logger.error(f"SMS failed for {phone}: {sms_e}")
-                    contact_errors.append(f"SMS: {str(sms_e)}")
-                
-                # 2. Make Voice Call
-                try:
-                    twiml = f"<Response><Say>help me i am in danger. help me i am in danger. help me i am in danger.</Say></Response>"
-                    client.calls.create(twiml=twiml, to=phone, from_=from_number)
-                    contact_success["call"] = True
-                    logger.info(f"Voice call initiated for {phone}")
-                except Exception as call_e:
-                    logger.error(f"Voice call failed for {phone}: {call_e}")
-                    contact_errors.append(f"Call: {str(call_e)}")
-                
-                overall_success = contact_success["sms"] or contact_success["call"]
-                err_msg = "; ".join(contact_errors)
-                return overall_success, err_msg, contact.phone
-
-            except Exception as e:
-                logger.error(f"Critical thread error for {contact.phone}: {e}")
-                return False, str(e), contact.phone
-
-        # Use ThreadPoolExecutor to run notifications concurrently
-        with ThreadPoolExecutor(max_workers=len(contacts)) as executor:
-            results = list(executor.map(notify_single_contact, contacts))
-            
-        for success, err_msg, phone in results:
-            if success:
-                notified.append(phone)
-            else:
-                errors.append(f"{phone}: {err_msg}")
-
-    alert.notified_contacts = json.dumps(notified)
-    db.session.commit()
-
-    logger.info(f"SOS Alert #{alert.id} triggered by user {user_id}. "
-                f"Notified: {len(notified)} contacts. Errors: {len(errors)}. Risk: {risk_score}")
+    logger.info(f"SOS Alert #{alert.id} accepted for processing for user {user_id}.")
 
     return jsonify({
-        "message": "SOS Alert triggered",
+        "message": "SOS Alert triggered and processing in background.",
         "alert": alert.to_dict(),
-        "notified_contacts": len(notified),
-        "errors": errors,
-        "risk_score": risk_score
+        "status": "processing"
     }), 201
+
+
+def process_sos_background(app, alert_id, data):
+    """Background task to run AI engine and notify contacts."""
+    with app.app_context():
+        alert = Alert.query.get(alert_id)
+        if not alert: return
+        
+        user_id = alert.user_id
+        user = User.query.get(user_id)
+        user_name = user.name if user else "a SAKHI User"
+        
+        # 1. Background AI Risk Calculation
+        try:
+            from ai.risk_engine import RiskEngine
+            engine = RiskEngine()
+            risk_data = engine.calculate_risk(
+                user_id=user_id,
+                latitude=alert.latitude,
+                longitude=alert.longitude
+            )
+            alert.risk_score = risk_data["score"]
+            db.session.add(alert)
+            db.session.commit()
+            logger.info(f"Background risk score updated for Alert #{alert_id}: {alert.risk_score}")
+        except Exception as e:
+            logger.warning(f"Background risk engine error for Alert #{alert_id}: {e}")
+
+        # 2. Parallel Notifications
+        contacts = EmergencyContact.query.filter_by(user_id=user_id).all()
+        if not contacts:
+            logger.info(f"No contacts to notify for Alert #{alert_id}")
+            return
+
+        twilio_config = {
+            "account_sid": app.config["TWILIO_ACCOUNT_SID"],
+            "auth_token":  app.config["TWILIO_AUTH_TOKEN"],
+            "from_number": app.config["TWILIO_PHONE_NUMBER"]
+        }
+
+        if not twilio_config["account_sid"] or not twilio_config["auth_token"]:
+            logger.error(f"Twilio not configured for background Alert #{alert_id}")
+            return
+
+        def dispatch_alert(contact, method="sms"):
+            """Thread-safe worker to send SMS or Call."""
+            phone = "".join(contact.phone.split())
+            try:
+                from twilio.rest import Client
+                client = Client(twilio_config["account_sid"], twilio_config["auth_token"])
+                from_num = twilio_config["from_number"]
+                
+                if method == "sms":
+                    maps_url = f"https://maps.google.com/?q={alert.latitude},{alert.longitude}" if alert.latitude else "unavailable"
+                    body = (f"🆘 SOS! {user_name} is in danger!\n"
+                            f"Location: {maps_url}\n"
+                            f"Time: {datetime.utcnow().strftime('%H:%M UTC')}\n"
+                            f"Msg: {alert.message}")
+                    client.messages.create(body=body, from_=from_num, to=phone)
+                    logger.info(f"Parallel SMS sent to {phone}")
+                else:
+                    twiml = f"<Response><Say>SOS! Emergency alert from {user_name}. Check your phone for location.</Say></Response>"
+                    client.calls.create(twiml=twiml, to=phone, from_=from_num)
+                    logger.info(f"Parallel Call initiated for {phone}")
+                return phone
+            except Exception as e:
+                logger.error(f"Background {method} failed for {phone}: {e}")
+                return None
+
+        # Fan-out: Every notification (SMS and Voice) for Every contact runs in its own thread
+        notified = []
+        with ThreadPoolExecutor(max_workers=len(contacts)*2) as notify_exec:
+            # Schedule SMS and Calls separately for maximum parallelism
+            futures = []
+            for c in contacts:
+                futures.append(notify_exec.submit(dispatch_alert, c, "sms"))
+                futures.append(notify_exec.submit(dispatch_alert, c, "call"))
+            
+            for future in futures:
+                res = future.result()
+                if res: notified.append(res)
+
+        alert.notified_contacts = json.dumps(list(set(notified)))
+        db.session.commit()
+        logger.info(f"SOS Alert #{alert_id} notifications completed. Notified: {len(set(notified))} ids.")
 
 
 # ─── Get Alert History ────────────────────────────────────────────────────────
