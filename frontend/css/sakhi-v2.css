@@ -322,8 +322,8 @@ textarea::placeholder {
 
 /* ── SOS BUTTON ───────────────────────────────────────────────────────────── */
 .sos-fixed-area {
-  background: linear-gradient(to bottom, var(--dark2), var(--dark));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  border-bottom: none;
 }
 
 .sos-button {
