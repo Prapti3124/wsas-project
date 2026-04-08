@@ -57,6 +57,7 @@ let accessToken = null;
 let refreshToken = null;
 let currentLat = null;
 let currentLon = null;
+let currentAcc = null;
 let sosHoldTimer = null;
 
 // Persistent Login Check on Load
@@ -449,7 +450,8 @@ function startGPS() {
     pos => {
       currentLat = pos.coords.latitude;
       currentLon = pos.coords.longitude;
-      const acc = pos.coords.accuracy || 0;
+      currentAcc = pos.coords.accuracy || 0;
+      const acc = currentAcc;
 
       // Accuracy Warning: If error margin is > 100 meters
       if (acc > 100) {
@@ -529,6 +531,7 @@ async function triggerSOS(type = 'manual') {
     const res = await api.post('/alerts/sos', {
       latitude: currentLat,
       longitude: currentLon,
+      accuracy: currentAcc,
       alert_type: type,
       message: 'help me i am in danger.'
     });
