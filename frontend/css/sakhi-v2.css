@@ -632,25 +632,21 @@ textarea::placeholder {
 }
 
 /* ── MAP ──────────────────────────────────────────────────────────────────── */
-.map-legend {
-  font-size: 0.8rem;
-  opacity: 0.75;
+.legend-red, .legend-orange, .legend-blue, .legend-green {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
 }
 
-.legend-red {
-  color: #ef5350;
-}
+.legend-red { background: #ff1744; }
+.legend-orange { background: #ff9100; }
+.legend-blue { background: #2979ff; }
+.legend-green { background: #00d4aa; }
 
-.legend-orange {
-  color: #ffa726;
-}
-
-.legend-blue {
-  color: #42a5f5;
-}
-
-.legend-green {
-  color: #66bb6a;
+.legend-hidden {
+  opacity: 0.4;
+  text-decoration: line-through;
+  filter: grayscale(1);
 }
 
 /* ── ALERT LIST ───────────────────────────────────────────────────────────── */
