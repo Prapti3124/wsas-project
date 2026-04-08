@@ -259,14 +259,7 @@ function handleAuthSuccess(res) {
   toast('Welcome back, ' + currentUser.name + '! 💙', 'success');
 }
 
-function logout() {
-  localStorage.clear();
-  accessToken = null;
-  refreshToken = null;
-  currentUser = null;
-  showSection('login');
-  toast('Logged out successfully', 'info');
-}
+
 
 /* ────────────────── PROFILE EDITING ──────────────────────────────────────── */
 let profileImageBase64 = null;
@@ -745,8 +738,12 @@ async function loadCommunity() {
 
 /* ────────────────── LOGOUT ──────────────────────────────────────────────── */
 function logout() {
-  localStorage.clear();
-  accessToken = null; currentUser = null;
+  localStorage.removeItem('wsas_token');
+  localStorage.removeItem('wsas_refresh');
+  localStorage.removeItem('wsas_user');
+  accessToken = null;
+  refreshToken = null;
+  currentUser = null;
   showSection('hero');
   toast('Logged out successfully.', 'info');
 }
