@@ -393,27 +393,25 @@ textarea::placeholder {
   height: 100%;
 }
 
+/* ── DASHBOARD STATS ──────────────────────────────────────────────────────── */
 .stat-card {
   border-radius: 16px;
   padding: 20px;
   text-align: center;
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.3s ease;
 }
 
-.stat-blue {
-  background: linear-gradient(135deg, #1565c0, #1a237e);
+.wsas-clickable {
+  cursor: pointer;
 }
 
-.stat-green {
-  background: linear-gradient(135deg, #2e7d32, #1b5e20);
-}
-
-.stat-yellow {
-  background: linear-gradient(135deg, #f57f17, #e65100);
-}
-
-.stat-red {
-  background: linear-gradient(135deg, #c62828, #7f0000);
+.wsas-clickable:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(233, 30, 99, 0.15);
+  border-color: rgba(233, 30, 99, 0.4);
 }
 
 .stat-num {

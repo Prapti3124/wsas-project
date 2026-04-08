@@ -358,29 +358,29 @@
             <div class="row g-4 mb-4">
               <!-- Stat cards -->
               <div class="col-md-3 col-6">
-                <div class="stat-card stat-blue">
-                  <i class="fas fa-bell fa-2x"></i>
+                <div class="stat-card wsas-clickable" onclick="loadTab('alerts')">
+                  <i class="fas fa-bell fa-2x" style="color: var(--pink-light);"></i>
                   <div class="stat-num" id="stat-alerts">0</div>
                   <div class="stat-label">Total Alerts</div>
                 </div>
               </div>
               <div class="col-md-3 col-6">
-                <div class="stat-card stat-green">
-                  <i class="fas fa-address-book fa-2x"></i>
+                <div class="stat-card wsas-clickable" onclick="loadTab('contacts')">
+                  <i class="fas fa-address-book fa-2x" style="color: #64b5f6;"></i>
                   <div class="stat-num" id="stat-contacts">0</div>
                   <div class="stat-label">Contacts</div>
                 </div>
               </div>
               <div class="col-md-3 col-6">
-                <div class="stat-card stat-yellow">
-                  <i class="fas fa-brain fa-2x"></i>
+                <div class="stat-card wsas-clickable" onclick="loadTab('analytics')">
+                  <i class="fas fa-brain fa-2x" style="color: #ffb74d;"></i>
                   <div class="stat-num" id="stat-risk">Low</div>
                   <div class="stat-label">Risk Level</div>
                 </div>
               </div>
               <div class="col-md-3 col-6">
-                <div class="stat-card stat-red">
-                  <i class="fas fa-map-pin fa-2x"></i>
+                <div class="stat-card wsas-clickable" onclick="loadTab('map')">
+                  <i class="fas fa-map-pin fa-2x" style="color: #e57373;"></i>
                   <div class="stat-num" id="stat-zones">0</div>
                   <div class="stat-label">Unsafe Zones</div>
                 </div>
