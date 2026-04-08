@@ -631,7 +631,7 @@ async function loadAlerts() {
           <span class="alert-badge-type">${a.alert_type}</span>
           <span class="ms-2 text-muted small">${new Date(a.created_at).toLocaleString('en-IN')}</span>
           <div class="mt-1 small">${escapeHtml(a.message || '')}
-            ${a.latitude ? `<a href="https://maps.google.com/?q=${a.latitude},${a.longitude}" 
+            ${a.latitude ? `<a href="https://www.google.com/maps/search/?api=1&query=${a.latitude},${a.longitude}" 
               target="_blank" class="ms-2 text-pink">📍 View map</a>` : ''}
           </div>
         </div>
