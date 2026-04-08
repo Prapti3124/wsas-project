@@ -55,12 +55,29 @@ function recenterMap() {
 function toggleMapLayer(type, el) {
   if (!leafletMap || !layers[type]) return;
 
-  if (leafletMap.hasLayer(layers[type])) {
+  const labels = {
+    unsafe: 'High Risk Zones',
+    reports: 'Community Reports',
+    trail: 'Tracking Trail',
+    pos: 'Current Position'
+  };
+
+  const isHiding = leafletMap.hasLayer(layers[type]);
+  const layerSize = layers[type].getLayers().length;
+
+  if (isHiding) {
     leafletMap.removeLayer(layers[type]);
     el.classList.add('legend-hidden');
+    toast(`🙈 Hidden: ${labels[type] || type}`, 'info');
   } else {
     leafletMap.addLayer(layers[type]);
     el.classList.remove('legend-hidden');
+    
+    if (layerSize === 0 && type !== 'pos') {
+      toast(`ℹ️ ${labels[type] || type} layer is active, but has no data yet.`, 'warning');
+    } else {
+      toast(`👁️ Showing: ${labels[type] || type}`, 'success');
+    }
   }
 }
 
