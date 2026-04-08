@@ -446,14 +446,31 @@
 
           <!-- MAP TAB -->
           <div id="tab-map" class="d-none">
-            <div class="wsas-card p-0 overflow-hidden">
-              <div id="liveMap" style="height:500px;"></div>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold m-0"><i class="fas fa-map-marked-alt text-pink me-2"></i>Live Safety Map</h5>
+              <span class="badge bg-danger pulse"><i class="fas fa-broadcast-tower me-1"></i>Live Tracking API Active</span>
             </div>
-            <div class="mt-3 d-flex gap-2 flex-wrap">
-              <span class="map-legend legend-red">⬤ Unsafe Zone</span>
-              <span class="map-legend legend-orange">⬤ Community Report</span>
-              <span class="map-legend legend-blue">⬤ Your Trail</span>
-              <span class="map-legend legend-green">⬤ Current Position</span>
+            
+            <div class="wsas-card p-0 position-relative" style="overflow: hidden; height: 600px; border: 1px solid rgba(233, 30, 140, 0.4); box-shadow: 0 0 30px rgba(0,0,0,0.5);">
+              <div id="liveMap" style="width:100%; height:100%; filter: contrast(1.1) saturate(1.2);"></div>
+              
+              <!-- Floating Legend Overlay -->
+              <div class="position-absolute bottom-0 start-0 m-3 p-3 rounded" style="background: rgba(20,20,40,0.85); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <h6 class="fw-bold mb-2 pb-2 border-bottom border-secondary small"><i class="fas fa-shield-alt text-pink me-2"></i>Live Legend</h6>
+                <div class="d-flex flex-column gap-2 small mt-2">
+                  <div class="d-flex align-items-center"><div class="legend-red me-2"></div> High Risk Zone</div>
+                  <div class="d-flex align-items-center"><div class="legend-orange me-2"></div> Community Report</div>
+                  <div class="d-flex align-items-center"><div class="legend-blue me-2"></div> Tracking Trail</div>
+                  <div class="d-flex align-items-center"><div class="legend-green me-2"></div> Current Position</div>
+                </div>
+              </div>
+
+              <!-- Floating Recenter Button -->
+              <div class="position-absolute top-0 end-0 m-3" style="z-index: 1000;">
+                <button class="btn btn-sm btn-dark" style="background: rgba(20,20,40,0.8); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.1);" onclick="try { map.setView([userLat, userLng], 14); } catch(e){}">
+                  <i class="fas fa-crosshairs text-pink me-1"></i> Recenter
+                </button>
+              </div>
             </div>
           </div>
 
