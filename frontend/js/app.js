@@ -525,33 +525,51 @@ async function refreshRiskScore() {
 
 /* ────────────────── SOS ─────────────────────────────────────────────────── */
 async function triggerSOS(type = 'manual') {
-  document.getElementById('sosOverlay').classList.remove('d-none');
+  const overlay = document.getElementById('sosOverlay');
+  const statusEl = document.getElementById('sosStatus');
+  
+  overlay.classList.remove('d-none');
+  statusEl.innerHTML = `<span class="badge bg-info"><i class="fas fa-satellite-dish fa-spin me-2"></i>Seeking precise location...</span>`;
 
-  try {
-    const res = await api.post('/alerts/sos', {
-      latitude: currentLat,
-      longitude: currentLon,
-      accuracy: currentAcc,
-      alert_type: type,
-      message: 'help me i am in danger.'
-    });
+  // Start a timeout to send the SOS even if GPS fails
+  const MAX_GPS_WAIT = 3000; // 3 seconds
+  let sosSent = false;
 
-    if (res.notified_contacts === 0 && res.errors && res.errors.length > 0) {
-      document.getElementById('sosStatus').innerHTML =
-        `<span class="badge bg-warning text-dark">⚠️ Alert recorded, but SMS/Voice failed</span>`;
-      toast(`⚠️ SOS recorded! Twilio error: ${res.errors[0]}`, 'warning');
-    } else {
-      document.getElementById('sosStatus').innerHTML =
-        `<span class="badge bg-success">✓ Alert sent to ${res.notified_contacts} contacts</span>`;
-      toast(`🚨 SOS sent! ${res.notified_contacts} contacts notified.`, 'danger');
+  const performSOS = async () => {
+    if (sosSent) return;
+    sosSent = true;
+    
+    try {
+      const res = await api.post('/alerts/sos', {
+        latitude: currentLat,
+        longitude: currentLon,
+        accuracy: currentAcc,
+        alert_type: type,
+        message: 'help me i am in danger.'
+      });
+
+      if (res.notified_contacts === 0 && res.errors && res.errors.length > 0) {
+        statusEl.innerHTML = `<span class="badge bg-warning text-dark">⚠️ Alert recorded, but SMS/Voice failed</span>`;
+        toast(`⚠️ SOS record created, but notification failed.`, 'warning');
+      } else {
+        const count = res.notified_contacts || 0;
+        statusEl.innerHTML = `<span class="badge bg-success">✓ Alert sent to ${count} contacts</span>`;
+        toast(`🚨 SOS sent! ${count} contacts notified.`, 'danger');
+      }
+
+      setTimeout(() => overlay.classList.add('d-none'), 5000);
+    } catch (e) {
+      overlay.classList.add('d-none');
+      toast('SOS failed. Please call 112 directly.', 'danger');
     }
+  };
 
-    setTimeout(() => {
-      document.getElementById('sosOverlay').classList.add('d-none');
-    }, 5000);
-  } catch (e) {
-    document.getElementById('sosOverlay').classList.add('d-none');
-    toast('SOS failed. Please call 112 directly.', 'danger');
+  // If we already have a location, send it immediately
+  if (currentLat && currentLon) {
+    performSOS();
+  } else {
+    // Wait up to 3 seconds for a lock, then send anyway
+    setTimeout(performSOS, MAX_GPS_WAIT);
   }
 }
 

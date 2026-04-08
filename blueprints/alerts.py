@@ -121,16 +121,19 @@ def process_sos_background(app, alert_id, data):
                 from_num = twilio_config["from_number"]
                 
                 if method == "sms":
-                    # Use exact 7-decimal precision as requested
-                    lat_str = f"{alert.latitude:.7f}" if alert.latitude else "0"
-                    lon_str = f"{alert.longitude:.7f}" if alert.longitude else "0"
-                    accuracy = data.get("accuracy")
-                    acc_str = f" (Accuracy: {round(accuracy)}m)" if accuracy else ""
+                    # Smart Location Formatting: Handle missing GPS
+                    if alert.latitude and alert.longitude:
+                        lat_str = f"{alert.latitude:.7f}"
+                        lon_str = f"{alert.longitude:.7f}"
+                        accuracy = data.get("accuracy")
+                        acc_str = f" (Accuracy: {round(accuracy)}m)" if accuracy else ""
+                        maps_url = f"https://maps.google.com/?q={lat_str},{lon_str}{acc_str}"
+                    else:
+                        maps_url = "⚠️ Location Unavailable (Signal weak or blocked)"
                     
                     # Exact format requested by user
-                    maps_url = f"https://maps.google.com/?q={lat_str},{lon_str}"
                     body = (f"🆘 SOS! {user_name} is in danger!\n"
-                            f"Location: {maps_url}{acc_str}\n"
+                            f"Location: {maps_url}\n"
                             f"Time: {datetime.utcnow().strftime('%H:%M')} UTC\n"
                             f"Msg: {alert.message}")
                     
