@@ -449,10 +449,17 @@ function startGPS() {
     pos => {
       currentLat = pos.coords.latitude;
       currentLon = pos.coords.longitude;
+      const acc = pos.coords.accuracy || 0;
+
+      // Accuracy Warning: If error margin is > 100 meters
+      if (acc > 100) {
+        toast(`📍 Low GPS accuracy (${Math.round(acc)}m). Move to a clearer area if possible.`, 'warning');
+      }
+
       // Send location to backend every 30s (throttled)
       api.post('/location/update', {
         latitude: currentLat, longitude: currentLon,
-        accuracy: pos.coords.accuracy, speed: pos.coords.speed
+        accuracy: acc, speed: pos.coords.speed
       }).catch(() => { });
     },
     err => {
@@ -460,12 +467,8 @@ function startGPS() {
       if (err.code === 1) toast('📍 Location denied. Please enable GPS and allow browser access.', 'warning');
       else if (err.code === 2) toast('📍 Position unavailable. Ensure your GPS is enabled.', 'danger');
       else if (err.code === 3) toast('📍 GPS timeout. Using last known location.', 'info');
-
-      if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-        toast('📍 Note: Accurate location on mobile requires HTTPS (e.g., via ngrok).', 'warning');
-      }
     },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
   );
 }
 

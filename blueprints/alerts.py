@@ -121,17 +121,13 @@ def process_sos_background(app, alert_id, data):
                 from_num = twilio_config["from_number"]
                 
                 if method == "sms":
-                    # Format to 6 decimal places for high precision and to prevent scientific notation
+                    # Shorten URL and body to avoid SMS line-breaks
                     lat_str = f"{alert.latitude:.6f}" if alert.latitude else "0"
                     lon_str = f"{alert.longitude:.6f}" if alert.longitude else "0"
+                    maps_url = f"https://maps.google.com/maps?q={lat_str},{lon_str}"
                     
-                    # Official Google Maps search API format is more reliable
-                    maps_url = f"https://www.google.com/maps/search/?api=1&query={lat_str},{lon_str}"
-                    
-                    body = (f"🆘 SOS! {user_name} is in danger!\n"
-                            f"Location: {maps_url}\n"
-                            f"Time: {datetime.utcnow().strftime('%H:%M UTC')}\n"
-                            f"Msg: {alert.message}")
+                    body = (f"🆘 SOS! {user_name} needs help!\n"
+                            f"Live Location: {maps_url}")
                     
                     logger.info(f"Sending SOS SMS to {phone}: {body}")
                     client.messages.create(body=body, from_=from_num, to=phone)
