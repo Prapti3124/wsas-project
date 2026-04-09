@@ -1,10 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    WSAS – Map Module (map.js)
-   Uses Leaflet.js
+   Uses Leaflet.js. Adds Safe Route Navigation feature.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 let leafletMap = null;
 let userMarker = null;
+let routeLayers = []; // Active route polylines for cleanup
 
 // Layer Groups for Toggling
 const layers = {
@@ -12,7 +13,8 @@ const layers = {
   reports: L.layerGroup(),
   trail: L.layerGroup(),
   hotspots: L.layerGroup(),
-  pos: L.layerGroup()
+  pos: L.layerGroup(),
+  routes: L.layerGroup()
 };
 
 async function initMap() {
@@ -59,7 +61,8 @@ function toggleMapLayer(type, el) {
     unsafe: 'High Risk Zones',
     reports: 'Community Reports',
     trail: 'Tracking Trail',
-    pos: 'Current Position'
+    pos: 'Current Position',
+    routes: 'Safe Routes'
   };
 
   const isHiding = leafletMap.hasLayer(layers[type]);
@@ -72,7 +75,7 @@ function toggleMapLayer(type, el) {
   } else {
     leafletMap.addLayer(layers[type]);
     el.classList.remove('legend-hidden');
-    
+
     if (layerSize === 0 && type !== 'pos') {
       toast(`ℹ️ ${labels[type] || type} layer is active, but has no data yet.`, 'warning');
     } else {
@@ -132,4 +135,190 @@ async function updateMapMarkers() {
   } catch (e) {
     console.warn('Map sync failed:', e);
   }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SAFE ROUTE NAVIGATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const ROUTE_COLORS = {
+  low:    { color: '#00e676', dashArray: null,     weight: 6 },   // green – safest
+  medium: { color: '#ffa726', dashArray: '8, 8',   weight: 5 },   // amber – caution
+  high:   { color: '#ff1744', dashArray: '6, 10',  weight: 5 },   // red – avoid
+};
+
+/**
+ * Geocode an address string using Nominatim (free, no key required).
+ * Returns { lat, lon, display_name } or null.
+ */
+async function geocodeAddress(address) {
+  try {
+    const encoded = encodeURIComponent(address);
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=1`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'SAKHI-SafetyApp' } });
+    const data = await res.json();
+    if (data && data.length > 0) {
+      return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), display_name: data[0].display_name };
+    }
+  } catch (e) {
+    console.warn('Geocoding failed:', e);
+  }
+  return null;
+}
+
+/**
+ * Main route planner triggered by the UI "Plan Safe Route" button.
+ */
+async function planSafeRoute() {
+  const destInput = document.getElementById('routeDestInput');
+  const routeResults = document.getElementById('routeResults');
+  const planBtn = document.getElementById('planRouteBtn');
+
+  const destText = destInput?.value?.trim();
+  if (!destText) {
+    toast('Please enter a destination address.', 'warning');
+    return;
+  }
+  if (!currentLat || !currentLon) {
+    toast('📍 GPS not ready. Enable location access and wait a moment.', 'warning');
+    return;
+  }
+
+  // Show loading state
+  planBtn.disabled = true;
+  planBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Planning...';
+  routeResults.innerHTML = `
+    <div class="text-center py-3">
+      <div class="spinner-border text-pink" style="width: 1.5rem; height: 1.5rem;"></div>
+      <div class="text-muted small mt-2">Geocoding destination & fetching safe routes...</div>
+    </div>`;
+
+  try {
+    // 1. Geocode the destination
+    const dest = await geocodeAddress(destText);
+    if (!dest) {
+      routeResults.innerHTML = `<div class="text-danger small mt-2">❌ Could not find that address. Try a more specific location.</div>`;
+      return;
+    }
+
+    // 2. Place destination marker
+    layers.routes.clearLayers();
+    L.marker([dest.lat, dest.lon], {
+      icon: L.divIcon({
+        className: '',
+        html: '<div style="background:#e91e8c;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 2px 8px rgba(0,0,0,0.5)">🏁</div>',
+        iconAnchor: [16, 16]
+      })
+    }).addTo(layers.routes).bindPopup(`<b>Destination</b><br>${dest.display_name}`).openPopup();
+
+    // 3. Call backend for scored routes
+    const res = await api.post('/location/safe-route', {
+      origin_lat: currentLat, origin_lon: currentLon,
+      dest_lat: dest.lat,    dest_lon: dest.lon
+    });
+
+    if (res.error) {
+      routeResults.innerHTML = `<div class="text-warning small mt-2">⚠️ ${res.error}</div>`;
+      return;
+    }
+
+    const routes = res.routes || [];
+    if (!routes.length) {
+      routeResults.innerHTML = `<div class="text-muted small mt-2">No routes found.</div>`;
+      return;
+    }
+
+    // 4. Draw routes on map
+    routes.forEach((route, idx) => {
+      const style = ROUTE_COLORS[route.risk_level] || ROUTE_COLORS.medium;
+      const latlngs = route.geometry; // already [[lat,lon],...]
+
+      const polyline = L.polyline(latlngs, {
+        color: style.color,
+        weight: idx === 0 ? style.weight + 2 : style.weight,
+        opacity: idx === 0 ? 1 : 0.55,
+        dashArray: idx === 0 ? null : style.dashArray
+      }).addTo(layers.routes);
+
+      polyline.bindPopup(`
+        <b>${route.label}</b><br>
+        📏 ${route.distance_km} km &nbsp;|&nbsp; ⏱ ${route.duration_min} min<br>
+        🛡️ Safety: ${100 - route.risk_score}/100<br>
+        🚗 Mode: ${route.profile === 'foot' ? '🚶 Walking' : '🚗 Driving'}
+      `);
+
+      // Auto-open popup for recommended route
+      if (idx === 0) polyline.openPopup();
+    });
+
+    // Fit map to show all routes
+    if (routes[0]?.geometry?.length) {
+      const allPoints = routes.flatMap(r => r.geometry);
+      leafletMap.fitBounds(L.latLngBounds(allPoints), { padding: [40, 40] });
+    }
+
+    // 5. Render route cards
+    const safetyBadge = (level, score) => {
+      const color = level === 'low' ? '#00e676' : level === 'medium' ? '#ffa726' : '#ff1744';
+      const label = level === 'low' ? 'Safe' : level === 'medium' ? 'Moderate Risk' : 'High Risk';
+      return `<span style="background:${color}20;color:${color};border:1px solid ${color}40;
+        border-radius:20px;padding:2px 10px;font-size:0.75rem;font-weight:600;">${label} (${100 - score}/100)</span>`;
+    };
+
+    routeResults.innerHTML = `
+      <div class="route-results-header">
+        <i class="fas fa-route text-pink me-2"></i>
+        <span class="fw-bold">${routes.length} Route${routes.length > 1 ? 's' : ''} found to ${dest.display_name.split(',')[0]}</span>
+      </div>
+      ${routes.map((r, i) => `
+        <div class="route-card ${i === 0 ? 'route-card-recommended' : ''}" onclick="focusRoute(${i})">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <div class="fw-semibold small">${r.label}</div>
+              <div class="text-muted" style="font-size:0.75rem;">
+                ${r.profile === 'foot' ? '🚶 Walking' : '🚗 Driving'} &nbsp;·&nbsp;
+                📏 ${r.distance_km} km &nbsp;·&nbsp; ⏱ ${r.duration_min} min
+              </div>
+            </div>
+            ${safetyBadge(r.risk_level, r.risk_score)}
+          </div>
+          ${i === 0 ? '<div class="route-recommended-badge"><i class="fas fa-shield-alt me-1"></i>SAFEST ROUTE</div>' : ''}
+        </div>
+      `).join('')}`;
+
+    // Store routes for focus function
+    window._plannedRoutes = routes;
+
+  } catch (err) {
+    console.error('Route planning error:', err);
+    routeResults.innerHTML = `<div class="text-danger small mt-2">❌ Route planning failed. Check connection.</div>`;
+  } finally {
+    planBtn.disabled = false;
+    planBtn.innerHTML = '<i class="fas fa-route me-2"></i>Plan Safe Route';
+  }
+}
+
+/**
+ * Pan map to focus on a specific route when its card is clicked.
+ */
+function focusRoute(idx) {
+  if (!leafletMap || !window._plannedRoutes || !window._plannedRoutes[idx]) return;
+  const route = window._plannedRoutes[idx];
+  if (route.geometry && route.geometry.length) {
+    leafletMap.fitBounds(L.latLngBounds(route.geometry), { padding: [40, 40] });
+  }
+}
+
+/**
+ * Clear all planned routes from the map and reset the UI.
+ */
+function clearRoutes() {
+  layers.routes.clearLayers();
+  window._plannedRoutes = null;
+  const routeResults = document.getElementById('routeResults');
+  if (routeResults) routeResults.innerHTML = '';
+  const destInput = document.getElementById('routeDestInput');
+  if (destInput) destInput.value = '';
+  toast('Routes cleared.', 'info');
 }

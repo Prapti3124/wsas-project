@@ -352,21 +352,12 @@ function initDashboard() {
     return;
   }
 
-  // Set user display
-  const pName = document.getElementById('profileName');
-  if (pName) {
-    pName.textContent = currentUser.name;
-    document.getElementById('profileEmail').textContent = currentUser.email;
-    document.getElementById('profilePhone').textContent = currentUser.phone || 'No phone set';
-    document.getElementById('profileAltPhone').textContent = currentUser.alternate_phone || 'None';
-    document.getElementById('profileAddress').textContent = currentUser.address || 'None';
-
+  // Set basic topbar user display
+  if (currentUser) {
     const photo = currentUser.profile_photo || null;
-    updateAvatarIcon('profileAvatar', currentUser.name[0], photo);
     updateAvatarIcon('userAvatar', currentUser.name[0], photo);
-    updateAvatarIcon('editPhotoPreview', currentUser.name[0], photo);
+    document.getElementById('userNameDisplay').textContent = currentUser.name;
   }
-  document.getElementById('userNameDisplay').textContent = currentUser.name;
 
   // Start clock
   setInterval(updateClock, 1000);
@@ -422,6 +413,7 @@ function loadTab(name) {
   if (name === 'map') initMap();
   if (name === 'community') loadCommunity();
   if (name === 'analytics') loadAnalytics();
+  if (name === 'account') loadProfileTab();
 }
 
 /* ────────────────── DASHBOARD STATS ────────────────────────────────────── */
@@ -439,6 +431,106 @@ async function loadDashboardStats() {
     console.warn('Stats load error:', e);
   }
 }
+
+/* ────────────────── PROFILE TAB ────────────────────────────────────────── */
+async function loadProfileTab() {
+  if (!currentUser) return;
+
+  // 1. Basic Info
+  document.getElementById('profileName').textContent = currentUser.name;
+  document.getElementById('profileEmail').textContent = currentUser.email;
+  document.getElementById('profileInfoName').textContent = currentUser.name;
+  document.getElementById('profileInfoEmail').textContent = currentUser.email;
+  document.getElementById('profileInfoPhone').textContent = currentUser.phone || 'None';
+  
+  if (currentUser.alternate_phone) {
+    document.getElementById('profileInfoAltPhone').textContent = currentUser.alternate_phone;
+    document.getElementById('profileInfoAltPhone').classList.remove('text-muted', 'fw-normal', 'fst-italic');
+    document.getElementById('profileInfoAltPhone').classList.add('text-light');
+  }
+
+  const photo = currentUser.profile_photo || null;
+  updateAvatarIcon('profileAvatar', currentUser.name[0], photo);
+  updateAvatarIcon('editPhotoPreview', currentUser.name[0], photo);
+
+  // 2. Address Split Logic & Form pre-fill
+  const fullAddress = currentUser.address || '';
+  document.getElementById('editAddress').value = fullAddress; // for edit mode
+  
+  if (fullAddress) {
+    const parts = fullAddress.split(',').map(s => s.trim());
+    document.getElementById('profileAddrStreet').textContent = parts[0] || '-';
+    document.getElementById('profileAddrArea').textContent = parts[1] || '-';
+    document.getElementById('profileAddrCity').textContent = parts[2] || '-';
+    document.getElementById('profileAddrPin').textContent = parts[3] || '-';
+    
+    document.getElementById('profileCityBadge').textContent = parts[2] ? `${parts[2]}, India` : 'India';
+  } else {
+    document.getElementById('profileAddrStreet').textContent = 'Not set';
+    document.getElementById('profileAddrArea').textContent = '-';
+    document.getElementById('profileAddrCity').textContent = '-';
+    document.getElementById('profileAddrPin').textContent = '-';
+  }
+
+  // 3. Stats & Risk Level
+  try {
+    const contactsRes = await api.get('/alerts/contacts');
+    const alertsRes = await api.get('/alerts/history');
+    
+    const numContacts = (contactsRes.contacts || []).length;
+    const numAlerts = alertsRes.total || 0;
+    
+    document.getElementById('profileStatContacts').textContent = numContacts;
+    document.getElementById('profileStatAlerts').textContent = numAlerts;
+    
+    // Fallback static counts for reports/score since there's no direct route yet for user totals
+    document.getElementById('profileStatReports').textContent = numAlerts > 0 ? 1 : 0; 
+    
+    // Determine risk level based on score
+    const riskBadge = document.getElementById('riskBadge');
+    let riskLevel = 'Low Risk';
+    let safetyScoreInt = 100;
+    
+    if (riskBadge && riskBadge.textContent.includes('High')) {
+       riskLevel = 'High Risk';
+       safetyScoreInt = 35;
+    } else if (riskBadge && riskBadge.textContent.includes('Medium')) {
+       riskLevel = 'Medium Risk';
+       safetyScoreInt = 70;
+    }
+
+    document.getElementById('profileStatusRisk').textContent = riskLevel;
+    document.getElementById('profileStatScore').textContent = safetyScoreInt;
+    document.getElementById('profileStatusScore').textContent = safetyScoreInt;
+    document.getElementById('profileStatusBar').style.width = safetyScoreInt + '%';
+    
+    const label = safetyScoreInt >= 80 ? 'Excellent' : safetyScoreInt >= 50 ? 'Moderate' : 'Critical';
+    document.getElementById('profileStatusLabel').textContent = label;
+
+    // Render contacts in the smaller tile format for the profile
+    const cList = document.getElementById('profileContactsList');
+    if (numContacts === 0) {
+      cList.innerHTML = '<p class="text-muted small">No emergency contacts set.</p>';
+    } else {
+      cList.innerHTML = contactsRes.contacts.map(c => `
+        <div class="profile-contact-tile">
+          <div class="avatar-circle me-3 flex-shrink-0" style="width:36px;height:36px;font-size:14px;background-color:rgba(233,30,140,0.2);color:#e91e63;">
+            ${c.name[0].toUpperCase()}
+          </div>
+          <div class="flex-grow-1">
+            <div class="fw-bold text-light small">${escapeHtml(c.name)}</div>
+            <div class="text-muted" style="font-size:0.7rem;">${escapeHtml(c.relation || 'Contact')}</div>
+          </div>
+          <div class="text-muted small">${escapeHtml(c.phone)}</div>
+        </div>
+      `).join('');
+    }
+
+  } catch (e) {
+    console.warn('Failed to load profile stats:', e);
+  }
+}
+
 
 /* ────────────────── GPS ─────────────────────────────────────────────────── */
 function startGPS() {
@@ -527,18 +619,24 @@ async function refreshRiskScore() {
 async function triggerSOS(type = 'manual') {
   const overlay = document.getElementById('sosOverlay');
   const statusEl = document.getElementById('sosStatus');
-  
+
   overlay.classList.remove('d-none');
+
+  // ── OFFLINE CHECK ────────────────────────────────────────────────────────
+  if (!navigator.onLine) {
+    triggerOfflineSOS();
+    return;
+  }
+
   statusEl.innerHTML = `<span class="badge bg-info"><i class="fas fa-satellite-dish fa-spin me-2"></i>Seeking precise location...</span>`;
 
-  // Start a timeout to send the SOS even if GPS fails
-  const MAX_GPS_WAIT = 3000; // 3 seconds
+  const MAX_GPS_WAIT = 3000;
   let sosSent = false;
 
   const performSOS = async () => {
     if (sosSent) return;
     sosSent = true;
-    
+
     try {
       const res = await api.post('/alerts/sos', {
         latitude: currentLat,
@@ -559,18 +657,76 @@ async function triggerSOS(type = 'manual') {
 
       setTimeout(() => overlay.classList.add('d-none'), 5000);
     } catch (e) {
-      overlay.classList.add('d-none');
-      toast('SOS failed. Please call 112 directly.', 'danger');
+      // If the API fails mid-request, try offline SMS as fallback
+      console.warn('SOS API failed, trying offline fallback:', e);
+      triggerOfflineSOS();
     }
   };
 
-  // If we already have a location, send it immediately
   if (currentLat && currentLon) {
     performSOS();
   } else {
-    // Wait up to 3 seconds for a lock, then send anyway
     setTimeout(performSOS, MAX_GPS_WAIT);
   }
+}
+
+/**
+ * OFFLINE SOS: Opens native SMS app with all cached emergency contacts
+ * and the user's GPS coordinates pre-filled in the message body.
+ * Also queues the SOS in localStorage for background sync replay.
+ */
+function triggerOfflineSOS() {
+  const overlay  = document.getElementById('sosOverlay');
+  const statusEl = document.getElementById('sosStatus');
+
+  overlay.classList.remove('d-none');
+
+  // Build location string
+  let locationStr = '⚠️ Location unavailable';
+  let mapsUrl     = '';
+  if (currentLat && currentLon) {
+    const lat7 = currentLat.toFixed(7);
+    const lon7 = currentLon.toFixed(7);
+    mapsUrl     = `https://maps.google.com/?q=${lat7},${lon7}`;
+    locationStr = mapsUrl;
+  }
+
+  const now     = new Date();
+  const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const userName = currentUser?.name || 'SAKHI User';
+  const smsBody = `🆘 SOS! ${userName} is in danger!\nLocation: ${locationStr}\nTime: ${timeStr}\nMsg: help me i am in danger.`;
+
+  // Load cached contacts
+  const cachedContacts = getCachedContacts();
+
+  if (cachedContacts.length > 0) {
+    // Build multi-recipient SMS URI (works natively on Android/iOS)
+    const phones = cachedContacts.map(c => c.phone).join(';');
+    const smsUri = `sms:${phones}?body=${encodeURIComponent(smsBody)}`;
+    window.open(smsUri, '_blank');
+    statusEl.innerHTML = `
+      <div class="offline-sos-state">
+        <i class="fas fa-mobile-alt fa-2x mb-2"></i>
+        <div class="fw-bold">📴 OFFLINE – SMS App Opened</div>
+        <div class="small opacity-75 mt-1">Send the pre-filled message to ${cachedContacts.length} contact${cachedContacts.length > 1 ? 's' : ''}</div>
+      </div>`;
+    toast('📴 Offline SOS: SMS app opened with pre-filled message!', 'warning');
+  } else {
+    // No cached contacts – provide direct call option
+    statusEl.innerHTML = `
+      <div class="offline-sos-state">
+        <i class="fas fa-exclamation-circle fa-2x mb-2"></i>
+        <div class="fw-bold">📴 OFFLINE – No cached contacts</div>
+        <div class="small opacity-75 mt-1">Please call emergency services directly</div>
+        <a href="tel:112" class="btn btn-light btn-sm mt-2">📞 Call 112</a>
+      </div>`;
+    toast('📴 Offline – No cached contacts. Call 112!', 'danger');
+  }
+
+  // Queue the SOS for background sync when connection returns
+  queueOfflineAlert({ lat: currentLat, lon: currentLon, time: now.toISOString(), user: userName });
+
+  setTimeout(() => overlay.classList.add('d-none'), 10000);
 }
 
 function cancelSOS() {
@@ -585,6 +741,10 @@ async function loadContacts() {
   try {
     const res = await api.get('/alerts/contacts');
     const contacts = res.contacts || [];
+
+    // ── Cache contacts for offline SOS ──────────────────────────────────────
+    cacheContactsLocally(contacts);
+
     if (!contacts.length) {
       el.innerHTML = '<p class="text-muted text-center">No contacts yet. Add emergency contacts to receive SOS alerts.</p>';
       return;
@@ -608,6 +768,94 @@ async function loadContacts() {
     el.innerHTML = '<p class="text-danger text-center">Failed to load contacts.</p>';
   }
 }
+
+/* ────────────────── OFFLINE SOS HELPERS ─────────────────────────────────── */
+/**
+ * Persist emergency contacts to localStorage so they are available when offline.
+ */
+function cacheContactsLocally(contacts) {
+  try {
+    localStorage.setItem('wsas_offline_contacts', JSON.stringify(contacts));
+  } catch (e) {
+    console.warn('Failed to cache contacts:', e);
+  }
+}
+
+/**
+ * Retrieve the cached contacts list.
+ */
+function getCachedContacts() {
+  try {
+    return JSON.parse(localStorage.getItem('wsas_offline_contacts') || '[]');
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Store a pending SOS alert in localStorage for background sync replay.
+ */
+function queueOfflineAlert(data) {
+  try {
+    const queue = JSON.parse(localStorage.getItem('wsas_pending_sos') || '[]');
+    queue.push(data);
+    localStorage.setItem('wsas_pending_sos', JSON.stringify(queue));
+    // Register background sync if supported
+    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.sync.register('sos-pending').catch(err => console.warn('Sync reg failed:', err));
+      });
+    }
+  } catch (e) {
+    console.warn('Failed to queue offline alert:', e);
+  }
+}
+
+/**
+ * Replay any queued offline SOS alerts once connectivity is restored.
+ * Called automatically on the 'online' event.
+ */
+async function replayQueuedAlerts() {
+  const queue = JSON.parse(localStorage.getItem('wsas_pending_sos') || '[]');
+  if (!queue.length) return;
+
+  toast(`🔄 Replaying ${queue.length} offline alert(s)...`, 'info');
+  const remaining = [];
+
+  for (const item of queue) {
+    try {
+      await api.post('/alerts/sos', {
+        latitude:   item.lat,
+        longitude:  item.lon,
+        alert_type: 'offline_sos',
+        message:    `[OFFLINE SOS – queued at ${item.time}] help me i am in danger.`
+      });
+      toast('✅ Queued offline SOS sent!', 'success');
+    } catch (e) {
+      remaining.push(item); // keep for next attempt
+    }
+  }
+
+  localStorage.setItem('wsas_pending_sos', JSON.stringify(remaining));
+}
+
+// Show/hide offline banner and replay queued alerts on connectivity change
+window.addEventListener('online',  () => {
+  document.getElementById('offlineBanner')?.classList.add('d-none');
+  toast('🌐 Back online!', 'success');
+  replayQueuedAlerts();
+});
+window.addEventListener('offline', () => {
+  document.getElementById('offlineBanner')?.classList.remove('d-none');
+  toast('📴 No internet connection. Offline SOS is ready.', 'warning');
+});
+
+// Show banner immediately if already offline on load
+document.addEventListener('DOMContentLoaded', () => {
+  if (!navigator.onLine) {
+    document.getElementById('offlineBanner')?.classList.remove('d-none');
+  }
+});
 
 async function addContact() {
   const name = document.getElementById('contactName').value.trim();

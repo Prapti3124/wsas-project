@@ -23,6 +23,13 @@
 
 <body>
 
+  <!-- ── OFFLINE BANNER (shown automatically when device goes offline) ───── -->
+  <div id="offlineBanner" class="offline-banner d-none">
+    <i class="fas fa-wifi-slash me-2"></i>
+    <span><b>No internet connection.</b> SOS will send via SMS. Alerts sync when online.</span>
+    <span class="ms-auto opacity-75 small">📴 Offline SOS Active</span>
+  </div>
+
   <!-- ── NAVBAR ──────────────────────────────────────────────────────────────── -->
   <nav class="navbar navbar-expand-lg navbar-dark wsas-nav fixed-top">
     <div class="container">
@@ -219,6 +226,9 @@
               <i class="fas fa-users"></i> Community</a></li>
           <li><a href="#" onclick="loadTab('analytics')">
               <i class="fas fa-chart-line"></i> Analytics</a></li>
+          <li><a href="#" onclick="loadTab('map')" id="mapNavSafeRoute">
+              <i class="fas fa-route" style="color:#00e676;"></i>
+              <span style="color:#00e676;">Safe Route</span></a></li>
         </ul>
         <div class="sidebar-footer">
           <button class="btn btn-outline-light btn-sm w-100" onclick="logout()">
@@ -272,40 +282,214 @@
 
           <!-- ACCOUNT TAB -->
           <div id="tab-account" class="d-none">
-            <div class="row justify-content-center mt-3">
-              <div class="col-md-8 col-lg-6">
+            <div class="row justify-content-center mt-3 mx-0">
+              <div class="col-lg-10 col-xl-8">
 
                 <!-- View Mode -->
-                <div class="wsas-card text-center mb-4 p-4 p-md-5 position-relative" id="profileViewMode">
-                  <button class="btn btn-outline-light btn-sm position-absolute top-0 end-0 m-3"
-                    onclick="toggleProfileEdit()">
-                    <i class="fas fa-pencil-alt"></i> Edit
-                  </button>
-                  <div class="avatar-circle mx-auto mb-3 shadow-lg position-relative"
-                    style="width:100px; height:100px; font-size:40px; overflow: hidden;" id="profileAvatar">
-                    U
+                <div id="profileViewMode">
+                  
+                  <!-- HEADER CARD -->
+                  <div class="wsas-profile-header wsas-card mb-3 d-flex flex-column flex-md-row align-items-center align-items-md-start justify-content-between">
+                    <div class="d-flex flex-column flex-md-row align-items-center gap-3">
+                      <div class="position-relative">
+                        <div class="avatar-circle shadow-lg" style="width:90px; height:90px; font-size:36px;" id="profileAvatar">U</div>
+                        <div class="position-absolute bottom-0 end-0 bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width:24px; height:24px; border:3px solid var(--card-bg); z-index: 2;">
+                          <i class="fas fa-check" style="font-size:0.6rem;"></i>
+                        </div>
+                      </div>
+                      <div class="text-center text-md-start mt-2 mt-md-0">
+                        <h3 id="profileName" class="fw-bold text-light mb-1">User Name</h3>
+                        <p class="text-pink mb-2 fs-6" id="profileEmail">user@example.com</p>
+                        <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-md-start">
+                          <span class="badge rounded-pill profile-badge-dark"><i class="fas fa-circle text-success me-1" style="font-size:0.5rem"></i>Protected & Active</span>
+                          <span class="badge rounded-pill profile-badge-dark"><i class="fas fa-map-marker-alt me-1 text-muted"></i><span id="profileCityBadge">Unknown Location</span></span>
+                          <span class="badge rounded-pill profile-badge-success"><i class="fas fa-check me-1"></i>Verified</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button class="btn btn-outline-light btn-sm mt-3 mt-md-0 rounded-pill px-3 py-2" onclick="toggleProfileEdit()">
+                      <i class="fas fa-pencil-alt me-2"></i>Edit Profile
+                    </button>
                   </div>
-                  <h3 id="profileName" class="fw-bold text-light mb-1">User Name</h3>
-                  <p class="text-pink mb-3 fw-semibold" id="profileEmail">user@example.com</p>
 
-                  <div class="text-start bg-dark p-3 rounded-3 mb-4 mx-auto" style="max-width: 320px;">
-                    <div class="d-flex align-items-center mb-2">
-                      <i class="fas fa-phone text-muted me-3" style="width: 16px;"></i>
-                      <span id="profilePhone" class="opacity-85">+1234567890</span>
+                  <!-- STATS ROW -->
+                  <div class="row g-3 mb-3">
+                    <div class="col-6 col-md-3">
+                      <div class="wsas-card text-center p-3">
+                        <h3 class="fw-bold text-pink mb-1" id="profileStatContacts">0</h3>
+                        <small class="text-uppercase text-muted fw-bold" style="letter-spacing:1px;font-size:0.7rem">Contacts</small>
+                      </div>
                     </div>
-                    <div class="d-flex align-items-center mb-2">
-                      <i class="fas fa-mobile-alt text-muted me-3" style="width: 16px;"></i>
-                      <span id="profileAltPhone" class="opacity-85">None</span>
+                    <div class="col-6 col-md-3">
+                      <div class="wsas-card text-center p-3">
+                        <h3 class="fw-bold text-warning mb-1" id="profileStatAlerts">0</h3>
+                        <small class="text-uppercase text-muted fw-bold" style="letter-spacing:1px;font-size:0.7rem">Alerts</small>
+                      </div>
                     </div>
-                    <div class="d-flex align-items-start">
-                      <i class="fas fa-map-marker-alt text-muted me-3 mt-1" style="width: 16px;"></i>
-                      <span id="profileAddress" class="opacity-85" style="font-size: 0.9rem;">None</span>
+                    <div class="col-6 col-md-3">
+                      <div class="wsas-card text-center p-3">
+                        <h3 class="fw-bold text-info mb-1" id="profileStatScore">100</h3>
+                        <small class="text-uppercase text-muted fw-bold" style="letter-spacing:1px;font-size:0.7rem">Safety Score</small>
+                      </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                      <div class="wsas-card text-center p-3">
+                        <h3 class="fw-bold text-primary mb-1" id="profileStatReports">0</h3>
+                        <small class="text-uppercase text-muted fw-bold" style="letter-spacing:1px;font-size:0.7rem">Reports</small>
+                      </div>
                     </div>
                   </div>
 
-                  <button class="btn btn-pink rounded-pill px-4 py-2 w-100" onclick="loadTab('home')">
-                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                  </button>
+                  <!-- TWO COLUMNS -->
+                  <div class="row g-3 mb-3">
+                    <!-- Personal Info -->
+                    <div class="col-md-6">
+                      <div class="wsas-card h-100 p-4">
+                        <h6 class="text-muted text-uppercase fw-bold mb-4" style="font-size:0.75rem;letter-spacing:1px;"><i class="fas fa-user mb-1 me-2"></i>Personal Info</h6>
+                        
+                        <div class="d-flex align-items-center mb-3">
+                          <div class="profile-info-icon me-3"><i class="fas fa-user"></i></div>
+                          <div>
+                            <div class="text-muted small">Full Name</div>
+                            <div class="fw-bold text-light" id="profileInfoName">User Name</div>
+                          </div>
+                        </div>
+                        
+                        <div class="d-flex align-items-center mb-3">
+                          <div class="profile-info-icon me-3"><i class="fas fa-envelope"></i></div>
+                          <div>
+                            <div class="text-muted small">Email</div>
+                            <div class="fw-bold text-light" id="profileInfoEmail">user@example.com</div>
+                          </div>
+                        </div>
+                        
+                        <div class="d-flex align-items-center mb-3">
+                          <div class="profile-info-icon me-3"><i class="fas fa-phone-alt"></i></div>
+                          <div>
+                            <div class="text-muted small">Primary Phone</div>
+                            <div class="fw-bold text-light" id="profileInfoPhone">None</div>
+                          </div>
+                        </div>
+                        
+                        <div class="d-flex align-items-center">
+                          <div class="profile-info-icon me-3"><i class="fas fa-mobile-alt"></i></div>
+                          <div>
+                            <div class="text-muted small">Alternate Phone</div>
+                            <div class="fw-bold text-muted fw-normal fst-italic" id="profileInfoAltPhone">Not set</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- Safety Status -->
+                    <div class="col-md-6">
+                      <div class="wsas-card h-100 p-4">
+                        <h6 class="text-muted text-uppercase fw-bold mb-4" style="font-size:0.75rem;letter-spacing:1px;"><i class="fas fa-shield-alt mb-1 me-2"></i>Safety Status</h6>
+                        
+                        <div class="d-flex align-items-start mb-4">
+                          <div class="profile-info-icon me-3"><i class="fas fa-lock"></i></div>
+                          <div class="w-100">
+                            <div class="text-muted small mb-1">Safety Score</div>
+                            <div class="fw-bold text-info mb-2"><span id="profileStatusScore">100</span> / 100 — <span id="profileStatusLabel">Excellent</span></div>
+                            <div class="progress" style="height: 6px; background-color: rgba(255,255,255,0.1);">
+                              <div class="progress-bar bg-info" id="profileStatusBar" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div class="d-flex align-items-center mb-4">
+                          <div class="profile-info-icon me-3"><i class="fas fa-shield-virus"></i></div>
+                          <div>
+                            <div class="text-muted small">Protection Level</div>
+                            <div class="fw-bold text-info">Advanced — AI Active</div>
+                          </div>
+                        </div>
+                        
+                        <div class="d-flex align-items-center">
+                          <div class="profile-info-icon me-3"><i class="fas fa-map-marker-alt"></i></div>
+                          <div>
+                            <div class="text-muted small">Risk Level</div>
+                            <div class="fw-bold text-info" id="profileStatusRisk">Low Risk</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- ADDRESS CARD -->
+                  <div class="wsas-card mb-3 p-4">
+                    <h6 class="text-muted text-uppercase fw-bold mb-4" style="font-size:0.75rem;letter-spacing:1px;"><i class="fas fa-map-marker-alt mb-1 me-2"></i>Address Details</h6>
+                    <div class="row g-4 mb-4">
+                      <div class="col-12 col-sm-6 d-flex align-items-center">
+                        <div class="profile-info-icon me-3"><i class="fas fa-map-pin"></i></div>
+                        <div>
+                          <div class="text-muted small">Street / Flat</div>
+                          <div class="fw-bold text-light" id="profileAddrStreet">Not set</div>
+                        </div>
+                      </div>
+                      <div class="col-12 col-sm-6 d-flex align-items-center">
+                        <div class="profile-info-icon me-3"><i class="fas fa-map"></i></div>
+                        <div>
+                          <div class="text-muted small">Area / Sector</div>
+                          <div class="fw-bold text-light" id="profileAddrArea">-</div>
+                        </div>
+                      </div>
+                      <div class="col-12 col-sm-6 d-flex align-items-center">
+                        <div class="profile-info-icon me-3"><i class="fas fa-building"></i></div>
+                        <div>
+                          <div class="text-muted small">City</div>
+                          <div class="fw-bold text-light" id="profileAddrCity">-</div>
+                        </div>
+                      </div>
+                      <div class="col-12 col-sm-6 d-flex align-items-center">
+                        <div class="profile-info-icon me-3"><i class="fas fa-mail-bulk"></i></div>
+                        <div>
+                          <div class="text-muted small">PIN Code</div>
+                          <div class="fw-bold text-light" id="profileAddrPin">-</div>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Map Placeholder Image (Stylized) -->
+                    <div class="profile-map-container rounded-3 position-relative overflow-hidden" style="height:120px; background-color: #1a1b2e; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center;">
+                       <div style="position: absolute; width: 100%; height: 100%; background-image: radial-gradient(circle at center, rgba(233,30,140,0.1) 0%, transparent 70%); pointer-events:none;"></div>
+                       <!-- Fake grid lines -->
+                       <div style="position: absolute; top:0; left:30%; width:20px; height:100%; background: rgba(0,0,0,0.2);"></div>
+                       <div style="position: absolute; top:0; left:70%; width:15px; height:100%; background: rgba(0,0,0,0.2);"></div>
+                       <div style="position: absolute; top:40%; left:0; width:100%; height:25px; background: rgba(0,0,0,0.2);"></div>
+                       <div style="position: absolute; top:80%; left:0; width:100%; height:15px; background: rgba(0,0,0,0.2);"></div>
+                       <!-- Fake popups/markers -->
+                       <div class="wsas-card position-absolute m-3 p-2 d-flex align-items-center gap-3" style="width:160px; height:60px; z-index:2; left:10px;">
+                          <div style="width:30px; height:30px; background: #6c757d; border-radius:50%; opacity:0.5;"></div>
+                          <div style="flex-grow:1; display:flex; flex-direction:column; gap:6px;">
+                            <div style="height:5px; width:100%; background: rgba(255,255,255,0.2); border-radius:3px;"></div>
+                            <div style="height:5px; width:70%; background: rgba(255,255,255,0.2); border-radius:3px;"></div>
+                          </div>
+                       </div>
+                       <!-- Target circle in center -->
+                       <div class="position-absolute" style="left:55%; top:50%; transform:translate(-50%,-50%); width:20px; height:20px; border:3px solid #e91e63; border-radius:50%; box-shadow: 0 0 15px rgba(233,30,140,0.8);">
+                         <div style="position:absolute; width:6px; height:6px; background:#e91e63; border-radius:50%; top:50%; left:50%; transform:translate(-50%,-50%);"></div>
+                       </div>
+                    </div>
+                  </div>
+
+                  <!-- EMERGENCY CONTACTS CARD -->
+                  <div class="wsas-card mb-4 p-4">
+                    <h6 class="text-muted text-uppercase fw-bold mb-4" style="font-size:0.75rem;letter-spacing:1px;"><i class="fas fa-book mb-1 me-2"></i>Emergency Contacts</h6>
+                    <div id="profileContactsList" class="d-flex flex-column gap-2">
+                       <p class="text-muted small">Loading emergency contacts...</p>
+                    </div>
+                  </div>
+
+                  <!-- BOTTOM BUTTONS -->
+                  <div class="d-flex gap-3 mb-5">
+                    <button class="btn profile-btn border border-secondary flex-grow-1" onclick="toggleProfileEdit()">
+                      <i class="fas fa-pencil-alt me-2"></i>Edit Profile
+                    </button>
+                    <button class="btn profile-btn border border-secondary flex-grow-1" onclick="toast('Change password functionality coming soon.', 'info')">
+                      <i class="fas fa-lock me-2"></i>Change Password
+                    </button>
+                  </div>
+
                 </div>
 
                 <!-- Edit Mode -->
@@ -337,7 +521,7 @@
                     </div>
                     <div class="mb-4">
                       <label class="form-label text-muted small">Home Address</label>
-                      <textarea class="form-control" id="editAddress" rows="2" placeholder="Optional"></textarea>
+                      <textarea class="form-control" id="editAddress" rows="2" placeholder="Start with Street/Flat, followed by Area, City, PIN"></textarea>
                     </div>
 
                     <div id="editProfileStatus" class="mb-3"></div>
@@ -446,12 +630,40 @@
 
           <!-- MAP TAB -->
           <div id="tab-map" class="d-none">
+            <!-- ── SAFE ROUTE PLANNER PANEL ───────────────────────────────── -->
+            <div class="safe-route-panel mb-3" id="routePlannerPanel">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="fas fa-route text-success fa-lg"></i>
+                <h6 class="fw-bold m-0">Safe Route Navigation</h6>
+                <span class="badge ms-auto" style="background:rgba(0,230,118,0.15);color:#00e676;border:1px solid rgba(0,230,118,0.4)">
+                  <i class="fas fa-shield-alt me-1"></i>Risk-aware routing
+                </span>
+              </div>
+              <div class="d-flex gap-2 align-items-center">
+                <div class="route-origin-dot"><i class="fas fa-dot-circle text-pink"></i></div>
+                <input type="text" id="routeDestInput" class="form-control"
+                  placeholder="Enter destination (e.g. Bandra Station, Mumbai)" />
+                <button id="planRouteBtn" class="btn btn-success btn-route-plan" onclick="planSafeRoute()">
+                  <i class="fas fa-route me-2"></i>Plan Safe Route
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="clearRoutes()" title="Clear routes">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <div class="route-legend-mini mt-2">
+                <span><span class="route-dot route-dot-safe"></span> Safest</span>
+                <span><span class="route-dot route-dot-medium"></span> Moderate</span>
+                <span><span class="route-dot route-dot-risky"></span> High Risk</span>
+              </div>
+              <div id="routeResults"></div>
+            </div>
+
             <div class="d-flex justify-content-between align-items-center mb-3">
               <h5 class="fw-bold m-0"><i class="fas fa-map-marked-alt text-pink me-2"></i>Live Safety Map</h5>
               <span class="badge bg-danger pulse"><i class="fas fa-broadcast-tower me-1"></i>Live Tracking API Active</span>
             </div>
             
-            <div class="wsas-card p-0 position-relative" style="overflow: hidden; height: 600px; border: 1px solid rgba(233, 30, 140, 0.4); box-shadow: 0 0 30px rgba(0,0,0,0.5);">
+            <div class="wsas-card p-0 position-relative" style="overflow: hidden; height: 520px; border: 1px solid rgba(233, 30, 140, 0.4); box-shadow: 0 0 30px rgba(0,0,0,0.5);">
               <div id="liveMap" style="width:100%; height:100%; filter: contrast(1.1) saturate(1.2);"></div>
               
               <!-- Floating Legend Overlay -->
@@ -462,6 +674,7 @@
                   <div class="d-flex align-items-center legend-item" onclick="toggleMapLayer('reports', this)"><div class="legend-orange me-2"></div> Community Report</div>
                   <div class="d-flex align-items-center legend-item" onclick="toggleMapLayer('trail', this)"><div class="legend-blue me-2"></div> Tracking Trail</div>
                   <div class="d-flex align-items-center legend-item" onclick="toggleMapLayer('pos', this)"><div class="legend-green me-2"></div> Current Position</div>
+                  <div class="d-flex align-items-center legend-item" onclick="toggleMapLayer('routes', this)"><div class="legend-route me-2"></div> Safe Routes</div>
                 </div>
               </div>
 
@@ -655,17 +868,23 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="js/api.js?v=1.4"></script>
-  <script src="js/app.js?v=1.4"></script>
-  <script src="js/voice.js?v=1.4"></script>
-  <script src="js/shake.js?v=1.4"></script>
-  <script src="js/map.js?v=1.4"></script>
-  <script src="js/charts.js?v=1.4"></script>
+  <script src="js/api.js?v=1.5"></script>
+  <script src="js/app.js?v=1.5"></script>
+  <script src="js/voice.js?v=1.5"></script>
+  <script src="js/shake.js?v=1.5"></script>
+  <script src="js/map.js?v=1.5"></script>
+  <script src="js/charts.js?v=1.5"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js?v=2').then(reg => {
-          reg.update(); // Force checking for updates
+        navigator.serviceWorker.register('/sw.js?v=4').then(reg => {
+          reg.update();
+          // Listen for Background Sync relay messages
+          navigator.serviceWorker.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'REPLAY_SOS_QUEUE') {
+              if (typeof replayQueuedAlerts === 'function') replayQueuedAlerts();
+            }
+          });
         }).catch(err => console.log('SW registration failed:', err));
       });
     }

@@ -892,3 +892,217 @@ textarea::placeholder {
     opacity: 1;
   }
 }
+
+/* ── OFFLINE BANNER ───────────────────────────────────────────────────────── */
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  background: linear-gradient(135deg, #b71c1c, #880e4f);
+  color: #fff;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  box-shadow: 0 3px 15px rgba(200, 0, 0, 0.5);
+  animation: slideDown 0.4s ease-out;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ── OFFLINE SOS STATE ────────────────────────────────────────────────────── */
+.offline-sos-state {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 16px 24px;
+  text-align: center;
+  margin-top: 12px;
+  color: #fff;
+}
+
+/* ── SAFE ROUTE PANEL ─────────────────────────────────────────────────────── */
+.safe-route-panel {
+  background: rgba(0, 230, 118, 0.06);
+  border: 1px solid rgba(0, 230, 118, 0.25);
+  border-radius: 16px;
+  padding: 16px 20px;
+  backdrop-filter: blur(8px);
+}
+
+.btn-route-plan {
+  background: linear-gradient(135deg, #00b248, #00e676);
+  border: none;
+  color: #000;
+  font-weight: 600;
+  border-radius: 10px;
+  white-space: nowrap;
+  transition: all 0.2s;
+  padding: 8px 18px;
+}
+
+.btn-route-plan:hover {
+  background: linear-gradient(135deg, #00c853, #69f0ae);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 230, 118, 0.4);
+  color: #000;
+}
+
+.route-origin-dot {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.route-legend-mini {
+  display: flex;
+  gap: 16px;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.5);
+  flex-wrap: wrap;
+}
+
+.route-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.route-dot-safe   { background: #00e676; box-shadow: 0 0 6px rgba(0,230,118,0.6); }
+.route-dot-medium { background: #ffa726; box-shadow: 0 0 6px rgba(255,167,38,0.6); }
+.route-dot-risky  { background: #ff1744; box-shadow: 0 0 6px rgba(255,23,68,0.6); }
+
+/* ── ROUTE RESULT CARDS ───────────────────────────────────────────────────── */
+.route-results-header {
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.55);
+  margin: 12px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.route-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+}
+
+.route-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(0, 230, 118, 0.3);
+  transform: translateX(3px);
+}
+
+.route-card-recommended {
+  border-color: rgba(0, 230, 118, 0.5) !important;
+  background: rgba(0, 230, 118, 0.07) !important;
+}
+
+.route-recommended-badge {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: #00e676;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* ── ROUTE LAYER LEGEND DOT ──────────────────────────────────────────────── */
+.legend-route {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #00e676;
+  box-shadow: 0 0 10px rgba(0, 230, 118, 0.5);
+}
+
+/* ── RESPONSIVE: route planner on mobile ─────────────────────────────────── */
+@media (max-width: 768px) {
+  .safe-route-panel .d-flex {
+    flex-wrap: wrap;
+  }
+
+  .btn-route-plan {
+    width: 100%;
+    margin-top: 8px;
+  }
+}
+
+/* ── PROFILE PAGE STYLES ─────────────────────────────────────────────────── */
+.wsas-profile-header {
+  background: linear-gradient(135deg, rgba(30, 20, 50, 0.8), rgba(20, 15, 30, 0.9));
+  border: 1px solid rgba(233, 30, 140, 0.2);
+  padding: 24px 30px;
+}
+
+.profile-info-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background-color: rgba(233, 30, 140, 0.15);
+  color: #e91e63;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.profile-badge-dark {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #bbb;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.profile-badge-success {
+  background-color: rgba(0, 230, 118, 0.1);
+  color: #00e676;
+  border: 1px solid rgba(0, 230, 118, 0.3);
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.profile-contact-tile {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  transition: background 0.2s;
+}
+.profile-contact-tile:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.profile-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #fff !important;
+  font-weight: 500;
+  padding: 10px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+.profile-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.profile-map-placeholder {
+  pointer-events: none;
+}
