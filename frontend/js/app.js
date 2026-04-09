@@ -1047,6 +1047,43 @@ function toast(msg, type = 'info') {
   setTimeout(() => el.remove(), 4000);
 }
 
+/* ────────────────── CHANGE PASSWORD ─────────────────────────────────────── */
+const pwForm = document.getElementById('changePasswordForm');
+if (pwForm) {
+  pwForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const oldPw = document.getElementById('oldPassword').value;
+    const newPw = document.getElementById('newPassword').value;
+    const confirmPw = document.getElementById('confirmNewPassword').value;
+    const statusEl = document.getElementById('changePasswordStatus');
+
+    statusEl.innerHTML = '';
+    
+    if (newPw !== confirmPw) {
+      statusEl.innerHTML = '<span class="text-danger small">New passwords do not match.</span>';
+      return;
+    }
+
+    try {
+      const res = await api.post('/auth/change-password', {
+        old_password: oldPw,
+        new_password: newPw
+      });
+
+      if (res.error) {
+        statusEl.innerHTML = `<span class="text-danger small">${res.error}</span>`;
+      } else {
+        toast('Password updated successfully!', 'success');
+        const modal = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
+        if (modal) modal.hide();
+        pwForm.reset();
+      }
+    } catch (err) {
+      statusEl.innerHTML = '<span class="text-danger small">Failed to change password.</span>';
+    }
+  });
+}
+
 /* ────────────────── AUTO-LOGIN ON PAGE LOAD ─────────────────────────────── */
 window.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem('wsas_token');

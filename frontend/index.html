@@ -485,7 +485,7 @@
                     <button class="btn profile-btn border border-secondary flex-grow-1" onclick="toggleProfileEdit()">
                       <i class="fas fa-pencil-alt me-2"></i>Edit Profile
                     </button>
-                    <button class="btn profile-btn border border-secondary flex-grow-1" onclick="toast('Change password functionality coming soon.', 'info')">
+                    <button class="btn profile-btn border border-secondary flex-grow-1" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
                       <i class="fas fa-lock me-2"></i>Change Password
                     </button>
                   </div>
@@ -860,6 +860,37 @@
       <p class="text-white">Notifying emergency contacts...</p>
       <div class="spinner-border text-white mt-2"></div>
       <button class="btn btn-light mt-3" onclick="cancelSOS()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ── CHANGE PASSWORD MODAL ────────────────────────────────────────────── -->
+  <div class="modal fade wsas-modal" id="changePasswordModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content text-light" style="background-color: var(--card-bg); border: 1px solid rgba(233, 30, 140, 0.3);">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title fw-bold"><i class="fas fa-lock text-pink me-2"></i>Change Password</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="changePasswordForm">
+            <div class="mb-3">
+              <label class="form-label text-muted small">Current Password</label>
+              <input type="password" class="form-control" id="oldPassword" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label text-muted small">New Password</label>
+              <input type="password" class="form-control" id="newPassword" required>
+              <div class="form-text text-muted" style="font-size: 0.75rem;">Requires 8+ chars, uppercase, digit, and special char.</div>
+            </div>
+            <div class="mb-4">
+              <label class="form-label text-muted small">Confirm New Password</label>
+              <input type="password" class="form-control" id="confirmNewPassword" required>
+            </div>
+            <div id="changePasswordStatus" class="mb-3"></div>
+            <button type="submit" class="btn btn-pink w-100 fw-bold">Update Password</button>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
 
