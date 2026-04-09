@@ -229,3 +229,26 @@ class ChatLog(db.Model):
     intent       = db.Column(db.String(50))
     triggered_sos= db.Column(db.Boolean, default=False)
     created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TRACKING SESSION MODEL (Follow Me)
+# ─────────────────────────────────────────────────────────────────────────────
+class TrackingSession(db.Model):
+    __tablename__ = "tracking_sessions"
+
+    id           = db.Column(db.Integer, primary_key=True)
+    user_id      = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    token        = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    is_active    = db.Column(db.Boolean, default=True)
+    expires_at   = db.Column(db.DateTime, nullable=False)
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "token": self.token,
+            "is_active": self.is_active,
+            "expires_at": self.expires_at.isoformat(),
+            "created_at": self.created_at.isoformat()
+        }

@@ -322,3 +322,93 @@ function clearRoutes() {
   if (destInput) destInput.value = '';
   toast('Routes cleared.', 'info');
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIVE LOCATION SHARING (FOLLOW ME)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+let activeTrackingToken = null;
+
+async function checkTrackingStatus() {
+  try {
+    const res = await api.get('/location/tracking/status');
+    if (res.is_active && res.token) {
+      activeTrackingToken = res.token;
+      showTrackingActiveState(res.token);
+    } else {
+      showTrackingInactiveState();
+    }
+  } catch(e) { console.warn("Failed to check tracking status"); }
+}
+
+async function startLiveTracking() {
+  const duration = document.getElementById('trackingDuration').value;
+  document.getElementById('trackingStatusBadge').textContent = 'Starting...';
+  document.getElementById('trackingStatusBadge').className = 'badge bg-warning text-dark';
+  
+  try {
+    const res = await api.post('/location/tracking/start', { duration: parseInt(duration) });
+    if (res.token) {
+      activeTrackingToken = res.token;
+      showTrackingActiveState(res.token);
+      toast('Live Tracking started successfully in the background.', 'success');
+      
+      // Ensure GPS polling is active
+      if (!watchId) startGPS();
+    } else {
+      toast('Error starting tracking: ' + res.error, 'danger');
+      showTrackingInactiveState();
+    }
+  } catch (err) {
+    toast('Network error starting tracking.', 'danger');
+    showTrackingInactiveState();
+  }
+}
+
+async function stopLiveTracking() {
+  document.getElementById('trackingStatusBadge').textContent = 'Stopping...';
+  try {
+    await api.post('/location/tracking/stop', {});
+    activeTrackingToken = null;
+    showTrackingInactiveState();
+    toast('Live Tracking stopped. Your location is no longer shared.', 'info');
+  } catch (err) {
+    toast('Error stopping tracking.', 'danger');
+  }
+}
+
+function showTrackingActiveState(token) {
+  const link = `${window.location.origin}/track.html?token=${token}`;
+  document.getElementById('trackingLinkInput').value = link;
+  
+  document.getElementById('trackingSetupBox').classList.add('d-none');
+  document.getElementById('trackingActiveBox').classList.remove('d-none');
+  
+  document.getElementById('trackingStatusBadge').textContent = 'Live & Sharing';
+  document.getElementById('trackingStatusBadge').className = 'badge bg-success pulse';
+
+  // Setup WhatsApp link
+  const waBtn = document.getElementById('whatsappShareBtn');
+  waBtn.href = `https://api.whatsapp.com/send?text=Follow%20my%20live%20location%20on%20SAKHI%20safely:%20${encodeURIComponent(link)}`;
+}
+
+function showTrackingInactiveState() {
+  document.getElementById('trackingSetupBox').classList.remove('d-none');
+  document.getElementById('trackingActiveBox').classList.add('d-none');
+  
+  document.getElementById('trackingStatusBadge').textContent = 'Inactive';
+  document.getElementById('trackingStatusBadge').className = 'badge bg-secondary';
+}
+
+function copyTrackingLink() {
+  const val = document.getElementById('trackingLinkInput');
+  val.select();
+  document.execCommand("copy");
+  toast('Tracking link copied to clipboard!', 'success');
+}
+
+// Hook it into the Map Load logic if we're entering Map Tab
+document.addEventListener('DOMContentLoaded', () => {
+    // Only verify status once on load if logged in
+    setTimeout(() => { if (accessToken) checkTrackingStatus(); }, 2000);
+});

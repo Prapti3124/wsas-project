@@ -6,10 +6,11 @@ Handles: Live location updates, history, unsafe zone checks, safe route planning
 import logging
 import requests
 from datetime import datetime, timedelta
+import uuid
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
-from models import LocationHistory, UnsafeZone, CommunityReport
+from models import LocationHistory, UnsafeZone, CommunityReport, TrackingSession, User
 from ai.risk_engine import haversine_distance
 
 location_bp = Blueprint("location", __name__)
@@ -184,3 +185,95 @@ def safe_route():
         route["label"] = "⚠️ Alternative"
 
     return jsonify({"routes": scored}), 200
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LIVE LOCATION TRACKING (FOLLOW ME)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@location_bp.route("/tracking/start", methods=["POST"])
+@jwt_required()
+def start_tracking():
+    user_id = int(get_jwt_identity())
+    data = request.get_json() or {}
+    duration_min = data.get("duration", 60) # Default 1 hour
+
+    # Invalidate any existing active sessions
+    active_sessions = TrackingSession.query.filter_by(user_id=user_id, is_active=True).all()
+    for s in active_sessions:
+        s.is_active = False
+
+    # Create new session
+    token = str(uuid.uuid4())
+    expires_at = datetime.utcnow() + timedelta(minutes=int(duration_min))
+
+    session = TrackingSession(
+        user_id=user_id,
+        token=token,
+        is_active=True,
+        expires_at=expires_at
+    )
+    db.session.add(session)
+    db.session.commit()
+
+    logger.info(f"User {user_id} started live tracking. Expires at {expires_at}")
+    return jsonify({
+        "message": "Tracking started",
+        "token": token,
+        "expires_at": expires_at.isoformat()
+    }), 201
+
+@location_bp.route("/tracking/stop", methods=["POST"])
+@jwt_required()
+def stop_tracking():
+    user_id = int(get_jwt_identity())
+    
+    active_sessions = TrackingSession.query.filter_by(user_id=user_id, is_active=True).all()
+    if not active_sessions:
+        return jsonify({"message": "No active tracking session found."}), 404
+
+    for s in active_sessions:
+        s.is_active = False
+    db.session.commit()
+
+    return jsonify({"message": "Tracking stopped."}), 200
+
+@location_bp.route("/tracking/status", methods=["GET"])
+@jwt_required()
+def tracking_status():
+    user_id = int(get_jwt_identity())
+    
+    session = TrackingSession.query.filter_by(user_id=user_id, is_active=True).first()
+    
+    if session and session.expires_at > datetime.utcnow():
+        return jsonify(session.to_dict()), 200
+    
+    if session and session.expires_at <= datetime.utcnow():
+        session.is_active = False
+        db.session.commit()
+
+    return jsonify({"is_active": False}), 200
+
+@location_bp.route("/tracking/public/<token>", methods=["GET"])
+def public_tracking(token):
+    session = TrackingSession.query.filter_by(token=token, is_active=True).first()
+    
+    if not session or session.expires_at < datetime.utcnow():
+        return jsonify({"error": "Link expired or invalid."}), 404
+
+    user = User.query.get(session.user_id)
+    if not user:
+        return jsonify({"error": "User not found."}), 404
+
+    latest_loc = LocationHistory.query.filter_by(user_id=session.user_id).order_by(LocationHistory.recorded_at.desc()).first()
+
+    if not latest_loc:
+         return jsonify({"error": "Location data not available."}), 404
+         
+    return jsonify({
+        "name": user.name,
+        "phone": user.phone,
+        "latitude": latest_loc.latitude,
+        "longitude": latest_loc.longitude,
+        "battery": 85, # placeholder metric
+        "recorded_at": latest_loc.recorded_at.isoformat()
+    }), 200

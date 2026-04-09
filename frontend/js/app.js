@@ -471,8 +471,54 @@ async function loadProfileTab() {
     document.getElementById('profileAddrCity').textContent = '-';
     document.getElementById('profileAddrPin').textContent = '-';
   }
+  
+  // 3. Mini Address Map Initialization
+  setTimeout(async () => {
+    const mapContainer = document.getElementById('profileAddressMap');
+    if (!mapContainer) return;
+    
+    // Clear old instance to prevent "Map already initialized"
+    if (window.profileMiniMap) {
+      window.profileMiniMap.remove();
+      window.profileMiniMap = null;
+    }
+    
+    mapContainer.innerHTML = ''; // wipe loading text
+    window.profileMiniMap = L.map('profileAddressMap', { 
+        zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, attributionControl: false 
+    });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(window.profileMiniMap);
 
-  // 3. Stats & Risk Level
+    let targetLat = currentLat || null;
+    let targetLon = currentLon || null;
+
+    if (fullAddress && typeof geocodeAddress === 'function') {
+      try {
+        const geo = await geocodeAddress(fullAddress);
+        if (geo) {
+          targetLat = geo.lat;
+          targetLon = geo.lon;
+        }
+      } catch(e) { } // silent fallback to GPS
+    }
+    
+    if (targetLat && targetLon) {
+      window.profileMiniMap.setView([targetLat, targetLon], 14);
+      L.circleMarker([targetLat, targetLon], {
+        radius: 8, fillColor: '#e91e63', color: '#fff', weight: 2, fillOpacity: 1
+      }).addTo(window.profileMiniMap);
+      
+      // Pulse ring
+      L.circleMarker([targetLat, targetLon], {
+        radius: 20, fillColor: 'transparent', color: '#e91e63', weight: 1, opacity: 0.5
+      }).addTo(window.profileMiniMap);
+    } else {
+      // Very silent fallback if totally unknown
+      window.profileMiniMap.setView([20.5937, 78.9629], 4); 
+    }
+  }, 300); // Slight delay for DOM transition calculation
+
+  // 4. Stats & Risk Level
   try {
     const contactsRes = await api.get('/alerts/contacts');
     const alertsRes = await api.get('/alerts/history');
