@@ -273,8 +273,9 @@ def public_tracking(token):
 
     user = db.session.get(User, session.user_id)
     if not user:
-        logger.error(f"Public Tracking: Session {token} found for user_id {session.user_id}, but user not in DB!")
-        return jsonify({"error": "User not found."}), 404
+        err_msg = f"User not found (UID: {session.user_id}, SID: {token[:8]}...)"
+        logger.error(f"Public Tracking: {err_msg}")
+        return jsonify({"error": err_msg}), 404
 
     latest_loc = LocationHistory.query.filter_by(user_id=session.user_id).order_by(LocationHistory.recorded_at.desc()).first()
 
