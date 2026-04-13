@@ -229,10 +229,23 @@ async function planSafeRoute() {
       return;
     }
 
+    // Helper to get icon & label for profile
+    const getModeInfo = (profile) => {
+      const map = {
+        'walking': { icon: 'fa-walking', label: 'Walking' },
+        'driving': { icon: 'fa-car',     label: 'Driving' },
+        'bus':     { icon: 'fa-bus',     label: 'Bus' },
+        'train':   { icon: 'fa-train',   label: 'Train' },
+        'plane':   { icon: 'fa-plane',   label: 'Flight' }
+      };
+      return map[profile] || { icon: 'fa-route', label: profile };
+    };
+
     // 4. Draw routes on map
     routes.forEach((route, idx) => {
       const style = ROUTE_COLORS[route.risk_level] || ROUTE_COLORS.medium;
-      const latlngs = route.geometry; // already [[lat,lon],...]
+      const latlngs = route.geometry; 
+      const mode = getModeInfo(route.profile);
 
       const polyline = L.polyline(latlngs, {
         color: style.color,
@@ -243,16 +256,15 @@ async function planSafeRoute() {
 
       polyline.bindPopup(`
         <b>${route.label}</b><br>
+        <i class="fas ${mode.icon} me-1"></i> ${mode.label}<br>
         📏 ${route.distance_km} km &nbsp;|&nbsp; ⏱ ${route.duration_min} min<br>
-        🛡️ Safety: ${100 - route.risk_score}/100<br>
-        🚗 Mode: ${route.profile === 'walking' ? '🚶 Walking' : '🚗 Driving'}
+        🛡️ Safety: ${100 - route.risk_score}/100
       `);
 
-      // Auto-open popup for recommended route
       if (idx === 0) polyline.openPopup();
     });
 
-    // Fit map to show all routes
+    // Fit map
     if (routes[0]?.geometry?.length) {
       const allPoints = routes.flatMap(r => r.geometry);
       leafletMap.fitBounds(L.latLngBounds(allPoints), { padding: [40, 40] });
@@ -269,23 +281,25 @@ async function planSafeRoute() {
     routeResults.innerHTML = `
       <div class="route-results-header">
         <i class="fas fa-route text-pink me-2"></i>
-        <span class="fw-bold">${routes.length} Route${routes.length > 1 ? 's' : ''} found to ${dest.display_name.split(',')[0]}</span>
+        <span class="fw-bold">${routes.length} Option${routes.length > 1 ? 's' : ''} to ${dest.display_name.split(',')[0]}</span>
       </div>
-      ${routes.map((r, i) => `
+      ${routes.map((r, i) => {
+        const mode = getModeInfo(r.profile);
+        return `
         <div class="route-card ${i === 0 ? 'route-card-recommended' : ''}" onclick="focusRoute(${i})">
           <div class="d-flex justify-content-between align-items-start mb-2">
             <div>
               <div class="fw-semibold small">${r.label}</div>
               <div class="text-muted" style="font-size:0.75rem;">
-                ${r.profile === 'walking' ? '🚶 Walking' : '🚗 Driving'} &nbsp;·&nbsp;
+                <i class="fas ${mode.icon} me-1" style="width:14px; text-align:center;"></i> ${mode.label} &nbsp;·&nbsp;
                 📏 ${r.distance_km} km &nbsp;·&nbsp; ⏱ ${r.duration_min} min
               </div>
             </div>
             ${safetyBadge(r.risk_level, r.risk_score)}
           </div>
-          ${i === 0 ? '<div class="route-recommended-badge"><i class="fas fa-shield-alt me-1"></i>SAFEST ROUTE</div>' : ''}
-        </div>
-      `).join('')}`;
+          ${i === 0 ? '<div class="route-recommended-badge"><i class="fas fa-shield-alt me-1"></i>SAFEST FOR THIS DISTANCE</div>' : ''}
+        </div>`;
+      }).join('')}`;
 
     // Store routes for focus function
     window._plannedRoutes = routes;

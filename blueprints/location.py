@@ -107,10 +107,21 @@ def safe_route():
     except (TypeError, ValueError):
         return jsonify({"error": "Coordinates must be numeric"}), 422
 
-    # Fetch up to 3 alternative routes from OSRM public router (walking + driving)
+    # Calculate direct distance to determine logical profiles
+    direct_dist_m = haversine_distance(olat, olon, dlat, dlon)
+    direct_dist_km = direct_dist_m / 1000
+
+    # 1. Determine profiles to fetch from OSRM
+    profiles_to_try = ["driving"]
+    if direct_dist_km < 10: # Only suggest walking for < 10km
+        profiles_to_try.append("walking")
+    
     routes = []
-    # Profiles on public OSRM: walking, driving, cycling
-    for profile in ["walking", "driving"]:
+    
+    # Check for extremely long distances (Global Travel)
+    is_global = direct_dist_km > 500
+    
+    for profile in profiles_to_try:
         try:
             url = (
                 f"https://router.project-osrm.org/route/v1/{profile}/"
@@ -118,34 +129,69 @@ def safe_route():
                 f"?overview=full&geometries=geojson&alternatives=true&steps=false"
             )
             resp = requests.get(url, timeout=10)
-            resp.raise_for_status()
             osrm_data = resp.json()
 
             if osrm_data.get("code") == "Ok":
-                for r in osrm_data.get("routes", [])[:2]:  # max 2 per profile
+                for r in osrm_data.get("routes", [])[:2]:
                     dist_m = r["distance"]
                     duration_sec = r["duration"]
                     
-                    # FALLBACK: If walking duration seems too fast (> 6km/h), 
-                    # calculate based on 5km/h walking speed for reliability
                     if profile == "walking":
-                        speed_kmh = (dist_m / 1000) / (duration_sec / 3600)
-                        if speed_kmh > 6.0:
-                            duration_sec = (dist_m / 1000) / 5.0 * 3600
+                        # Adjust walking speed to 5km/h for safety calculations
+                        duration_sec = (dist_m / 1000) / 5.0 * 3600
                     
-                    coords = r["geometry"]["coordinates"]  # [[lon, lat], ...]
+                    coords = r["geometry"]["coordinates"] # [[lon, lat], ...]
+                    
+                    # Store as original profile
                     routes.append({
                         "profile": profile,
                         "distance_km": round(dist_m / 1000, 2),
                         "duration_min": round(duration_sec / 60, 1),
-                        "waypoints": [[c[1], c[0]] for c in coords[::max(1, len(coords)//20)]],
                         "full_geometry": [[c[1], c[0]] for c in coords]
                     })
         except Exception as e:
-            logger.warning(f"OSRM {profile} routing failed: {e}")
+            logger.warning(f"OSRM {profile} failed: {e}")
+
+    # 2. Synthesize additional modes (Bus/Train/Flight) based on distance
+    if direct_dist_km > 20:
+        # Clone a driving route to represent 'Bus' or 'Train' if we have one
+        driving_routes = [rt for rt in routes if rt["profile"] == "driving"]
+        if driving_routes:
+            base_rt = driving_routes[0]
+            # Add 'Bus' alternative (slower than car)
+            routes.append({
+                "profile": "bus",
+                "distance_km": base_rt["distance_km"],
+                "duration_min": round(base_rt["duration_min"] * 1.4 + 15, 1), # +15m overhead
+                "full_geometry": base_rt["full_geometry"]
+            })
+            if direct_dist_km > 80:
+                # Add 'Train' alternative (faster than car for long distances)
+                routes.append({
+                    "profile": "train",
+                    "distance_km": base_rt["distance_km"],
+                    "duration_min": round(base_rt["duration_min"] * 0.85 + 20, 1), # Fast but has overhead
+                    "full_geometry": base_rt["full_geometry"]
+                })
+
+    # 3. Add 'Flight' for extremely long or global distances
+    if is_global:
+        # Synthesize a flight route (direct line)
+        flight_duration = round((direct_dist_km / 800) * 60 + 120, 1) # 800km/h + 2h check-in
+        routes.append({
+            "profile": "plane",
+            "distance_km": round(direct_dist_km, 2),
+            "duration_min": flight_duration,
+            "full_geometry": [[olat, olon], [dlat, dlon]] # Vertical line for now
+        })
 
     if not routes:
-        return jsonify({"error": "Could not fetch routes. Check connectivity or try again."}), 503
+        return jsonify({"error": "No transport routes found for this destination."}), 404
+
+    # Now downsample and score routes as before
+    for r in routes:
+        geom = r["full_geometry"]
+        r["waypoints"] = geom[::max(1, len(geom)//30)] # Downsample for scoring efficiency
 
     # Load risk data for scoring
     zones = UnsafeZone.query.filter_by(is_active=True).all()
@@ -176,15 +222,21 @@ def safe_route():
         return round(total / max(1, len(waypoints)), 1)
 
     scored = []
-    for i, r in enumerate(routes[:4]):               # cap at 4 routes total
+    for i, r in enumerate(routes):
         risk = score_route(r["waypoints"])
-        label_idx = i + 1
+        
+        # PRACTICALITY PENALTY:
+        # If a route takes > 3 hours or >> than the direct flight/car time,
+        # it is penalized so it doesn't appear as the 'Recommended' Safest option.
+        if r["duration_min"] > 180:
+            risk += (r["duration_min"] / 60) * 5 # +5 points per extra hour
+            
         scored.append({
-            "route_id":     label_idx,
+            "route_id":     i + 1,
             "profile":      r["profile"],
             "distance_km":  r["distance_km"],
             "duration_min": r["duration_min"],
-            "risk_score":   risk,
+            "risk_score":   min(100, risk),
             "risk_level":   "low" if risk < 25 else "medium" if risk < 55 else "high",
             "geometry":     r["full_geometry"]
         })
