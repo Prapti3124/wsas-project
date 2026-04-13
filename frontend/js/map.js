@@ -397,7 +397,8 @@ async function stopLiveTracking() {
 }
 
 function showTrackingActiveState(token) {
-  const link = `${window.location.origin}/track.html?token=${token}`;
+  // Add a cache-busting timestamp to force laptop browsers to reload the fresh link
+  const link = `${window.location.origin}/track.html?token=${token}&ts=${Date.now()}`;
   document.getElementById('trackingLinkInput').value = link;
   
   document.getElementById('trackingSetupBox').classList.add('d-none');
