@@ -245,7 +245,7 @@ async function planSafeRoute() {
         <b>${route.label}</b><br>
         📏 ${route.distance_km} km &nbsp;|&nbsp; ⏱ ${route.duration_min} min<br>
         🛡️ Safety: ${100 - route.risk_score}/100<br>
-        🚗 Mode: ${route.profile === 'foot' ? '🚶 Walking' : '🚗 Driving'}
+        🚗 Mode: ${route.profile === 'walking' ? '🚶 Walking' : '🚗 Driving'}
       `);
 
       // Auto-open popup for recommended route
@@ -277,7 +277,7 @@ async function planSafeRoute() {
             <div>
               <div class="fw-semibold small">${r.label}</div>
               <div class="text-muted" style="font-size:0.75rem;">
-                ${r.profile === 'foot' ? '🚶 Walking' : '🚗 Driving'} &nbsp;·&nbsp;
+                ${r.profile === 'walking' ? '🚶 Walking' : '🚗 Driving'} &nbsp;·&nbsp;
                 📏 ${r.distance_km} km &nbsp;·&nbsp; ⏱ ${r.duration_min} min
               </div>
             </div>
@@ -348,18 +348,21 @@ async function startLiveTracking() {
   
   try {
     const res = await api.post('/location/tracking/start', { duration: parseInt(duration) });
+    console.log('Tracking Start Response:', res);
+    
     if (res.token) {
       activeTrackingToken = res.token;
       showTrackingActiveState(res.token);
-      toast('Live Tracking started successfully in the background.', 'success');
+      toast('Live Tracking started successfully.', 'success');
       
-      // Ensure GPS polling is active
       if (!watchId) startGPS();
     } else {
-      toast('Error starting tracking: ' + res.error, 'danger');
+      console.error('Tracking Error:', res.error);
+      toast('Error starting tracking: ' + (res.error || 'Unknown error'), 'danger');
       showTrackingInactiveState();
     }
   } catch (err) {
+    console.error('Tracking Network Error:', err);
     toast('Network error starting tracking.', 'danger');
     showTrackingInactiveState();
   }

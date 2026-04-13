@@ -109,24 +109,35 @@ def safe_route():
 
     # Fetch up to 3 alternative routes from OSRM public router (walking + driving)
     routes = []
-    for profile in ["foot", "car"]:
+    # Profiles on public OSRM: walking, driving, cycling
+    for profile in ["walking", "driving"]:
         try:
             url = (
                 f"https://router.project-osrm.org/route/v1/{profile}/"
                 f"{olon},{olat};{dlon},{dlat}"
                 f"?overview=full&geometries=geojson&alternatives=true&steps=false"
             )
-            resp = requests.get(url, timeout=8)
+            resp = requests.get(url, timeout=10)
             resp.raise_for_status()
             osrm_data = resp.json()
 
             if osrm_data.get("code") == "Ok":
                 for r in osrm_data.get("routes", [])[:2]:  # max 2 per profile
+                    dist_m = r["distance"]
+                    duration_sec = r["duration"]
+                    
+                    # FALLBACK: If walking duration seems too fast (> 6km/h), 
+                    # calculate based on 5km/h walking speed for reliability
+                    if profile == "walking":
+                        speed_kmh = (dist_m / 1000) / (duration_sec / 3600)
+                        if speed_kmh > 6.0:
+                            duration_sec = (dist_m / 1000) / 5.0 * 3600
+                    
                     coords = r["geometry"]["coordinates"]  # [[lon, lat], ...]
                     routes.append({
                         "profile": profile,
-                        "distance_km": round(r["distance"] / 1000, 2),
-                        "duration_min": round(r["duration"] / 60, 1),
+                        "distance_km": round(dist_m / 1000, 2),
+                        "duration_min": round(duration_sec / 60, 1),
                         "waypoints": [[c[1], c[0]] for c in coords[::max(1, len(coords)//20)]],
                         "full_geometry": [[c[1], c[0]] for c in coords]
                     })
