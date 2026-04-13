@@ -11,99 +11,118 @@
   
   <style>
     :root {
-      --bg-dark: #0f101f;
-      --card-bg: #1a1b2e;
+      --bg-dark: #f0f2f5;
+      --card-bg: #ffffff;
       --pink-primary: #e91e63;
       --pink-light: #ff6090;
+      --google-blue: #4285F4;
     }
     body {
       background-color: var(--bg-dark);
-      color: #fff;
-      font-family: 'Inter', sans-serif;
+      color: #333;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
       overflow: hidden;
     }
     #map {
       height: 100vh;
       width: 100vw;
-      filter: contrast(1.1) saturate(1.2);
     }
-    .tracking-header {
+    .track-header {
       position: absolute;
-      top: 0; left: 0; right: 0;
-      background: rgba(26, 27, 46, 0.9);
+      top: 15px; left: 15px; right: 15px;
+      background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(10px);
       z-index: 1000;
-      padding: 15px 20px;
-      border-bottom: 1px solid rgba(233, 30, 140, 0.3);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      padding: 12px 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      border: 1px solid rgba(0,0,0,0.05);
     }
-    .pulse-dot {
+    .user-avatar-small {
+        width: 44px; height: 44px; border-radius: 50%;
+        background: var(--pink-primary);
+        color: white;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: bold; font-size: 1.2rem;
+        box-shadow: 0 2px 8px rgba(233, 30, 99, 0.3);
+    }
+    .status-indicator {
       display: inline-block;
-      width: 10px; height: 10px;
+      width: 8px; height: 8px;
       background: #00e676;
       border-radius: 50%;
-      box-shadow: 0 0 10px #00e676;
-      animation: pulse 1.5s infinite;
+      box-shadow: 0 0 8px #00e676;
+      animation: pulse-green 1.5s infinite;
+      margin-right: 6px;
     }
-    @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.7); }
-      70% { box-shadow: 0 0 0 10px rgba(0, 230, 118, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0); }
+    @keyframes pulse-green {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+      100% { opacity: 1; transform: scale(1); }
     }
     .loading-overlay {
       position: fixed; inset: 0; z-index: 9999;
-      background: var(--bg-dark);
+      background: white;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
     }
-    .user-avatar {
-        width: 40px; height: 40px; border-radius: 50%;
-        background: var(--pink-primary);
-        display: flex; align-items: center; justify-content: center;
-        font-weight: bold; font-size: 1.2rem;
+    .pin-user {
+      width: 24px; height: 24px;
+      background: var(--google-blue);
+      border: 3px solid white;
+      border-radius: 50%;
+      box-shadow: 0 0 15px rgba(66, 133, 244, 0.6);
     }
+    .btn-pink {
+      background: var(--pink-primary);
+      color: white;
+      border: none;
+    }
+    .btn-pink:hover { background: var(--pink-light); color: white; }
+    
+    /* Popups */
+    .leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
   </style>
 </head>
 <body>
 
   <div id="loadingOverlay" class="loading-overlay">
-    <div class="spinner-border text-pink mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
-    <h4 class="fw-bold">Locating User...</h4>
-    <p class="text-secondary" id="loadingMsg">Verifying secure token</p>
+    <div class="spinner-border text-pink mb-3" style="width: 3.5rem; height: 3.5rem;" role="status"></div>
+    <h4 class="fw-bold">Establishing Secure Link...</h4>
+    <p class="text-muted" id="loadingMsg">Verifying encryption keys</p>
   </div>
 
-  <div class="tracking-header d-flex justify-content-between align-items-center">
-    <div class="d-flex align-items-center gap-3">
-      <div class="user-avatar" id="userInitial">?</div>
-      <div>
-        <h5 class="m-0 fw-bold d-flex align-items-center gap-2">
-          <span id="userName">Tracking User</span> 
-          <span class="badge bg-success rounded-pill" style="font-size: 0.6rem;"><span class="pulse-dot me-1"></span> LIVE</span>
-        </h5>
-        <div class="text-muted small mt-1">
-          <i class="fas fa-clock text-pink me-1"></i> Updated: <span id="lastUpdated">Just now</span>
+  <header class="track-header d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center">
+        <div class="user-avatar-small me-3" id="userInitial">?</div>
+        <div>
+            <h5 class="mb-0 fw-bold" id="userName">User</h5>
+            <div class="d-flex align-items-center">
+                <span class="status-indicator"></span>
+                <small class="text-muted" id="lastUpdated">Updating...</small>
+            </div>
         </div>
-      </div>
     </div>
-    
-    <div class="text-end">
-        <a id="phoneLink" href="#" class="btn btn-outline-light btn-sm rounded-pill px-3" style="border-color: var(--pink-primary); color: var(--pink-primary);">
-            <i class="fas fa-phone-alt me-1"></i> Call
-        </a>
+    <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-pink rounded-pill px-3 shadow-sm" id="followBtn" onclick="toggleFollow()">
+            <i class="fas fa-location-arrow me-1"></i> Follow
+        </button>
+        <a href="#" id="phoneLink" class="btn btn-light btn-sm rounded-circle shadow-sm border"><i class="fas fa-phone text-pink"></i></a>
     </div>
-  </div>
+  </header>
 
   <div id="map"></div>
 
   <!-- Error Modal -->
   <div class="modal fade" id="errorModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content" style="background-color: var(--card-bg); border: 1px solid rgba(233, 30, 140, 0.3);">
+      <div class="modal-content border-0 shadow-lg">
         <div class="modal-body text-center p-5">
-          <i class="fas fa-link-slash fa-4x text-danger mb-4"></i>
-          <h4 class="fw-bold text-white mb-2">Session Ended</h4>
-          <p class="text-muted" id="errorText">This tracking link has expired or the user has stopped sharing their location.</p>
+          <i class="fas fa-link-slash fa-4x text-danger mb-4 opacity-75"></i>
+          <h4 class="fw-bold mb-2">Session Ended</h4>
+          <p class="text-muted" id="errorText">This tracking link has expired or reached its time limit.</p>
+          <button class="btn btn-outline-secondary btn-sm mt-3 px-4 rounded-pill" onclick="window.location.reload()">Retry Connection</button>
         </div>
       </div>
     </div>
@@ -118,11 +137,20 @@
     let map = null;
     let marker = null;
     let pulseCircle = null;
+    let isFollowMode = true;
 
     if (!token) {
-        showError("Invalid tracking link. No token provided.");
+        showError("Invalid tracking link. Token required.");
     } else {
         initTracking();
+    }
+
+    function toggleFollow() {
+        isFollowMode = !isFollowMode;
+        const btn = document.getElementById('followBtn');
+        btn.classList.toggle('btn-pink');
+        btn.classList.toggle('btn-outline-secondary');
+        if (isFollowMode && marker) map.panTo(marker.getLatLng());
     }
 
     function showError(msg) {
@@ -141,7 +169,7 @@
             }
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.error || "Session ended");
+                throw new Error(data.error || "Session offline");
             }
             return await res.json();
         } catch(e) {
@@ -153,13 +181,11 @@
         try {
             const data = await fetchLocation();
             
-            // Setup UI
             document.getElementById('userName').textContent = data.name;
             document.getElementById('userInitial').textContent = data.name.charAt(0).toUpperCase();
             
             if (data.isWaiting) {
-                document.getElementById('loadingMsg').textContent = "Waiting for " + data.name + "'s device to send location...";
-                // Keep polling until we get actual data
+                document.getElementById('loadingMsg').textContent = "Waiting for " + data.name + "'s device...";
                 setTimeout(initTracking, 5000);
                 return;
             }
@@ -171,46 +197,53 @@
             }
             updateTime(data.recorded_at);
 
-            // Initialize Map
-            map = L.map('map', { zoomControl: false }).setView([data.latitude, data.longitude], 16);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+            // Initialize Map (Voyager Theme)
+            map = L.map('map', { 
+                zoomControl: false,
+                attributionControl: false
+            }).setView([data.latitude, data.longitude], 17);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                maxZoom: 20
+            }).addTo(map);
 
-            marker = L.circleMarker([data.latitude, data.longitude], {
-                radius: 10, fillColor: '#e91e63', color: '#fff', weight: 2, fillOpacity: 1
+            marker = L.marker([data.latitude, data.longitude], {
+                icon: L.divIcon({
+                    className: 'pin-user-container',
+                    html: '<div class="pin-user"></div>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                })
             }).addTo(map);
 
             pulseCircle = L.circleMarker([data.latitude, data.longitude], {
-                radius: 30, fillColor: 'transparent', color: '#e91e63', weight: 1, opacity: 0.6
+                radius: 30, fillColor: 'transparent', color: '#4285F4', weight: 1, opacity: 0.5
             }).addTo(map);
 
             document.getElementById('loadingOverlay').classList.add('d-none');
-
-            // Start Polling Loop (every 5 seconds)
-            setInterval(updateLocation, 5000);
+            pollLocation();
 
         } catch(e) {
             showError(e.message);
         }
     }
 
-    async function updateLocation() {
+    async function pollLocation() {
         try {
             const data = await fetchLocation();
-            if (data.isWaiting) return; // Keep waiting for next poll
-
-            const latlng = [data.latitude, data.longitude];
-            
-            if (marker) {
-                marker.setLatLng(latlng);
-                pulseCircle.setLatLng(latlng);
-                map.panTo(latlng, { animate: true });
+            if (!data.isWaiting) {
+                const latlng = [data.latitude, data.longitude];
+                if (marker) {
+                    marker.setLatLng(latlng);
+                    pulseCircle.setLatLng(latlng);
+                    if (isFollowMode) map.panTo(latlng, { animate: true });
+                }
+                updateTime(data.recorded_at);
             }
-            
-            updateTime(data.recorded_at);
         } catch(e) {
-            // Optional: Show a subtle warning instead of a modal to handle network jitter
-            console.warn("Update failed:", e);
+            console.warn("Poll failed", e);
         }
+        setTimeout(pollLocation, 10000); // 10s intervals for background battery efficiency
     }
 
     function updateTime(isoString) {
@@ -218,10 +251,9 @@
         let hours = date.getHours();
         let mins = date.getMinutes();
         const ampm = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12;
-        hours = hours ? hours : 12;
+        hours = hours % 12 || 12;
         mins = mins < 10 ? '0' + mins : mins;
-        document.getElementById('lastUpdated').textContent = `${hours}:${mins} ${ampm}`;
+        document.getElementById('lastUpdated').textContent = `Last seen at ${hours}:${mins} ${ampm}`;
     }
   </script>
 </body>

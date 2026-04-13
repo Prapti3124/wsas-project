@@ -23,12 +23,14 @@ async function initMap() {
     return;
   }
 
-  // Dark Map Theme if preferred, but sticking to standard OSM for reliability
-  leafletMap = L.map('liveMap', { zoomControl: false });
+  // Premium Voyager Theme - Neat & Clean (Google Maps style)
+  leafletMap = L.map('liveMap', { 
+    zoomControl: false,
+    attributionControl: false
+  });
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors',
-    maxZoom: 19
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    maxZoom: 20
   }).addTo(leafletMap);
 
   // Add all layers to map by default
@@ -91,8 +93,13 @@ async function updateMapMarkers() {
     // 1. Current Position
     if (currentLat && currentLon) {
       layers.pos.clearLayers();
-      userMarker = L.circleMarker([currentLat, currentLon], {
-        radius: 10, fillColor: '#00d4aa', color: '#fff', weight: 3, fillOpacity: 0.9
+      userMarker = L.marker([currentLat, currentLon], {
+        icon: L.divIcon({
+          className: 'pin-user-container',
+          html: '<div class="pin-user"></div>',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        })
       }).addTo(layers.pos).bindPopup('<b>You are here</b><br>Live tracking active.');
     }
 
@@ -102,16 +109,31 @@ async function updateMapMarkers() {
     (zonesRes.zones || []).forEach(z => {
       L.circle([z.latitude, z.longitude], {
         radius: z.radius_meters,
-        fillColor: '#ff1744', fillOpacity: 0.25, color: '#ff1744', weight: 1
+        fillColor: '#EA4335', fillOpacity: 0.15, color: '#EA4335', weight: 2
       }).addTo(layers.unsafe).bindPopup(`<b>⚠️ ${z.name}</b><br>Risk Score: ${z.crime_score}`);
+      
+      // Add a center pin
+      L.marker([z.latitude, z.longitude], {
+        icon: L.divIcon({
+          className: 'custom-pin pin-unsafe',
+          html: '<i class="fas fa-exclamation-triangle"></i>',
+          iconSize: [32, 32],
+          iconAnchor: [16, 32]
+        })
+      }).addTo(layers.unsafe);
     });
 
     // 3. Community Reports
     const reportsRes = await api.get('/community/reports');
     layers.reports.clearLayers();
     (reportsRes.reports || []).forEach(r => {
-      L.circleMarker([r.latitude, r.longitude], {
-        radius: 8, fillColor: '#ff9100', color: '#fff', weight: 2, fillOpacity: 0.9
+      L.marker([r.latitude, r.longitude], {
+        icon: L.divIcon({
+          className: 'custom-pin pin-report',
+          html: '<i class="fas fa-flag"></i>',
+          iconSize: [32, 32],
+          iconAnchor: [16, 32]
+        })
       }).addTo(layers.reports).bindPopup(`<b>Community Alert: ${r.category}</b><br>${r.description || 'No details provided'}`);
     });
 
@@ -120,7 +142,7 @@ async function updateMapMarkers() {
     const trail = (trailRes.trail || []).map(l => [l.latitude, l.longitude]);
     layers.trail.clearLayers();
     if (trail.length > 1) {
-      L.polyline(trail, { color: '#2979ff', weight: 4, opacity: 0.6, dashArray: '5, 10' }).addTo(layers.trail);
+      L.polyline(trail, { color: '#4285F4', weight: 4, opacity: 0.6, dashArray: '5, 10' }).addTo(layers.trail);
     }
 
     // 5. Hotspots
@@ -128,7 +150,7 @@ async function updateMapMarkers() {
     layers.hotspots.clearLayers();
     (hotspotsRes.hotspots || []).forEach(h => {
       L.circleMarker([h.lat, h.lng], {
-        radius: h.weight * 6, fillColor: '#e91e63', color: 'transparent', fillOpacity: 0.35
+        radius: h.weight * 6, fillColor: '#e91e63', color: 'transparent', fillOpacity: 0.25
       }).addTo(layers.hotspots);
     });
 
@@ -206,9 +228,10 @@ async function planSafeRoute() {
     layers.routes.clearLayers();
     L.marker([dest.lat, dest.lon], {
       icon: L.divIcon({
-        className: '',
-        html: '<div style="background:#e91e8c;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 2px 8px rgba(0,0,0,0.5)">🏁</div>',
-        iconAnchor: [16, 16]
+        className: 'custom-pin pin-destination',
+        html: '<i class="fas fa-flag-checkered"></i>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32]
       })
     }).addTo(layers.routes).bindPopup(`<b>Destination</b><br>${dest.display_name}`).openPopup();
 

@@ -1105,4 +1105,21 @@ textarea::placeholder {
 
 .profile-map-placeholder {
   pointer-events: none;
-}
+}
+/*  PREMIUM MAP OVERRIDES  */
+.map-container-premium { position: relative; border-radius: 16px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.4); background: #f8f9fa; }
+.floating-map-panel { position: absolute; top: 15px; left: 15px; right: 15px; z-index: 1000; max-width: 500px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); padding: 8px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.floating-map-panel:focus-within { box-shadow: 0 8px 25px rgba(0,0,0,0.2); transform: translateY(-2px); }
+.map-search-input { border: none !important; background: transparent !important; box-shadow: none !important; font-size: 0.95rem; color: #333 !important; }
+.custom-pin { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 3px 6px rgba(0,0,0,0.3); border: 1px solid white; }
+.custom-pin i { transform: rotate(45deg); color: white; font-size: 14px; }
+.pin-user { background: #4285F4; width: 24px; height: 24px; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(66, 133, 244, 0.5); }
+.pin-report { background: #FBBC05; }
+.pin-unsafe { background: #EA4335; }
+.pin-destination { background: #E91E63; }
+.map-controls-stack { position: absolute; bottom: 85px; right: 15px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+.map-btn-circle { width: 44px; height: 44px; border-radius: 50%; background: white; color: #555; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(0,0,0,0.2); border: none; font-size: 18px; transition: all 0.2s; }
+.map-btn-circle:hover { background: #f8f9fa; color: #e91e8c; transform: scale(1.1); }
+.leaflet-popup-content-wrapper { background: white !important; color: #333 !important; border-radius: 12px !important; box-shadow: 0 8px 30px rgba(0,0,0,0.2) !important; padding: 5px !important; }
+.leaflet-popup-content { font-family: sans-serif; font-size: 14px !important; margin: 10px 15px !important; }
+
