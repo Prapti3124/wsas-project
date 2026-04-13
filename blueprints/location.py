@@ -153,7 +153,7 @@ def safe_route():
             logger.warning(f"OSRM {profile} failed: {e}")
 
     # 2. Synthesize additional modes (Bus/Train/Flight) based on distance
-    if direct_dist_km > 20:
+    if direct_dist_km > 10:
         # Clone a driving route to represent 'Bus' or 'Train' if we have one
         driving_routes = [rt for rt in routes if rt["profile"] == "driving"]
         if driving_routes:
@@ -165,7 +165,7 @@ def safe_route():
                 "duration_min": round(base_rt["duration_min"] * 1.4 + 15, 1), # +15m overhead
                 "full_geometry": base_rt["full_geometry"]
             })
-            if direct_dist_km > 80:
+            if direct_dist_km > 15:
                 # Add 'Train' alternative (faster than car for long distances)
                 routes.append({
                     "profile": "train",
@@ -182,8 +182,13 @@ def safe_route():
             "profile": "plane",
             "distance_km": round(direct_dist_km, 2),
             "duration_min": flight_duration,
-            "full_geometry": [[olat, olon], [dlat, dlon]] # Vertical line for now
+            "full_geometry": [[olat, olon], [dlat, dlon]] 
         })
+        
+        # FILTER: If it's a massive global distance, discard ground transport entirely 
+        # to ensure only the plane is shown for destinations across borders/oceans.
+        if direct_dist_km > 1000:
+            routes = [r for r in routes if r["profile"] == "plane"]
 
     if not routes:
         return jsonify({"error": "No transport routes found for this destination."}), 404
@@ -231,12 +236,13 @@ def safe_route():
         if r["duration_min"] > 180:
             risk += (r["duration_min"] / 60) * 5 # +5 points per extra hour
             
+        risk = round(risk, 1)
         scored.append({
             "route_id":     i + 1,
             "profile":      r["profile"],
             "distance_km":  r["distance_km"],
             "duration_min": r["duration_min"],
-            "risk_score":   min(100, risk),
+            "risk_score":   min(100.0, risk),
             "risk_level":   "low" if risk < 25 else "medium" if risk < 55 else "high",
             "geometry":     r["full_geometry"]
         })

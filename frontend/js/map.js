@@ -229,6 +229,13 @@ async function planSafeRoute() {
       return;
     }
 
+    // Helper to format minutes into a human-readable string (Xh Ym)
+    const formatDuration = (min) => {
+      const h = Math.floor(min / 60);
+      const m = Math.round(min % 60);
+      return h > 0 ? `${h}h ${m}m` : `${m} min`;
+    };
+
     // Helper to get icon & label for profile
     const getModeInfo = (profile) => {
       const map = {
@@ -246,6 +253,7 @@ async function planSafeRoute() {
       const style = ROUTE_COLORS[route.risk_level] || ROUTE_COLORS.medium;
       const latlngs = route.geometry; 
       const mode = getModeInfo(route.profile);
+      const duration = formatDuration(route.duration_min);
 
       const polyline = L.polyline(latlngs, {
         color: style.color,
@@ -257,7 +265,7 @@ async function planSafeRoute() {
       polyline.bindPopup(`
         <b>${route.label}</b><br>
         <i class="fas ${mode.icon} me-1"></i> ${mode.label}<br>
-        📏 ${route.distance_km} km &nbsp;|&nbsp; ⏱ ${route.duration_min} min<br>
+        📏 ${route.distance_km} km &nbsp;|&nbsp; ⏱ ${duration}<br>
         🛡️ Safety: ${100 - route.risk_score}/100
       `);
 
@@ -275,7 +283,7 @@ async function planSafeRoute() {
       const color = level === 'low' ? '#00e676' : level === 'medium' ? '#ffa726' : '#ff1744';
       const label = level === 'low' ? 'Safe' : level === 'medium' ? 'Moderate Risk' : 'High Risk';
       return `<span style="background:${color}20;color:${color};border:1px solid ${color}40;
-        border-radius:20px;padding:2px 10px;font-size:0.75rem;font-weight:600;">${label} (${100 - score}/100)</span>`;
+        border-radius:20px;padding:2px 10px;font-size:0.75rem;font-weight:600;">${label} (${Number(score).toFixed(1)}/100)</span>`;
     };
 
     routeResults.innerHTML = `
@@ -285,6 +293,7 @@ async function planSafeRoute() {
       </div>
       ${routes.map((r, i) => {
         const mode = getModeInfo(r.profile);
+        const duration = formatDuration(r.duration_min);
         return `
         <div class="route-card ${i === 0 ? 'route-card-recommended' : ''}" onclick="focusRoute(${i})">
           <div class="d-flex justify-content-between align-items-start mb-2">
@@ -292,12 +301,12 @@ async function planSafeRoute() {
               <div class="fw-semibold small">${r.label}</div>
               <div class="text-muted" style="font-size:0.75rem;">
                 <i class="fas ${mode.icon} me-1" style="width:14px; text-align:center;"></i> ${mode.label} &nbsp;·&nbsp;
-                📏 ${r.distance_km} km &nbsp;·&nbsp; ⏱ ${r.duration_min} min
+                📏 ${r.distance_km} km &nbsp;·&nbsp; ⏱ ${duration}
               </div>
             </div>
             ${safetyBadge(r.risk_level, r.risk_score)}
           </div>
-          ${i === 0 ? '<div class="route-recommended-badge"><i class="fas fa-shield-alt me-1"></i>SAFEST FOR THIS DISTANCE</div>' : ''}
+          ${i === 0 ? '<div class="route-recommended-badge"><i class="fas fa-shield-alt me-1"></i>SAFEST OPTION</div>' : ''}
         </div>`;
       }).join('')}`;
 
