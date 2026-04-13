@@ -271,8 +271,9 @@ def public_tracking(token):
     if not session or session.expires_at < datetime.utcnow():
         return jsonify({"error": "Link expired or invalid."}), 404
 
-    user = User.query.get(session.user_id)
+    user = db.session.get(User, session.user_id)
     if not user:
+        logger.error(f"Public Tracking: Session {token} found for user_id {session.user_id}, but user not in DB!")
         return jsonify({"error": "User not found."}), 404
 
     latest_loc = LocationHistory.query.filter_by(user_id=session.user_id).order_by(LocationHistory.recorded_at.desc()).first()
