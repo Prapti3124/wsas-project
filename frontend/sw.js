@@ -2,7 +2,7 @@
    WSAS – Service Worker (sw.js)
    Network-First strategy + Background Sync for offline SOS.
    ═══════════════════════════════════════════════════════════════════════════ */
-const CACHE_NAME = 'sakhi-v4-features';
+const CACHE_NAME = 'sakhi-v5-cache-reset';
 const ASSETS = [
   '/',
   '/index.html',
