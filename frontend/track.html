@@ -7,137 +7,122 @@
   
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
   <style>
     :root {
-      --bg-dark: #f0f2f5;
-      --card-bg: #ffffff;
+      --bg-dark: #0f101f;
+      --card-bg: #1a1b2e;
       --pink-primary: #e91e63;
       --pink-light: #ff6090;
-      --google-blue: #4285F4;
     }
     body {
       background-color: var(--bg-dark);
-      color: #333;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+      font-family: 'Inter', sans-serif;
       margin: 0;
       overflow: hidden;
     }
     #map {
       height: 100vh;
       width: 100vw;
+      filter: contrast(1.1) saturate(1.2);
     }
-    .track-header {
+    .tracking-header {
       position: absolute;
-      top: 15px; left: 15px; right: 15px;
-      background: rgba(255, 255, 255, 0.95);
+      top: 0; left: 0; right: 0;
+      background: rgba(26, 27, 46, 0.9);
       backdrop-filter: blur(10px);
       z-index: 1000;
-      padding: 12px 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-      border: 1px solid rgba(0,0,0,0.05);
+      padding: 15px 20px;
+      border-bottom: 1px solid rgba(233, 30, 140, 0.3);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
-    .user-avatar-small {
-        width: 44px; height: 44px; border-radius: 50%;
-        background: var(--pink-primary);
-        color: white;
-        display: flex; align-items: center; justify-content: center;
-        font-weight: bold; font-size: 1.2rem;
-        box-shadow: 0 2px 8px rgba(233, 30, 99, 0.3);
-    }
-    .status-indicator {
+    .pulse-dot {
       display: inline-block;
-      width: 8px; height: 8px;
+      width: 10px; height: 10px;
       background: #00e676;
       border-radius: 50%;
-      box-shadow: 0 0 8px #00e676;
-      animation: pulse-green 1.5s infinite;
-      margin-right: 6px;
+      box-shadow: 0 0 10px #00e676;
+      animation: pulse 1.5s infinite;
     }
-    @keyframes pulse-green {
-      0% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(1.2); }
-      100% { opacity: 1; transform: scale(1); }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(0, 230, 118, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0); }
     }
     .loading-overlay {
       position: fixed; inset: 0; z-index: 9999;
-      background: white;
+      background: var(--bg-dark);
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
     }
-    .btn-pink {
-      background: var(--pink-primary);
-      color: white;
-      border: none;
+    .user-avatar {
+        width: 40px; height: 40px; border-radius: 50%;
+        background: var(--pink-primary);
+        display: flex; align-items: center; justify-content: center;
+        font-weight: bold; font-size: 1.2rem;
     }
-    .btn-pink:hover { background: var(--pink-light); color: white; }
   </style>
 </head>
 <body>
 
   <div id="loadingOverlay" class="loading-overlay">
-    <div class="spinner-border text-pink mb-3" style="width: 3.5rem; height: 3.5rem;" role="status"></div>
-    <h4 class="fw-bold">Establishing Secure Link...</h4>
-    <p class="text-muted" id="loadingMsg">Fetching mapping configuration</p>
+    <div class="spinner-border text-pink mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+    <h4 class="fw-bold">Locating User...</h4>
+    <p class="text-secondary" id="loadingMsg">Verifying secure token</p>
   </div>
 
-  <header class="track-header d-flex justify-content-between align-items-center">
-    <div class="d-flex align-items-center">
-        <div class="user-avatar-small me-3" id="userInitial">?</div>
-        <div>
-            <h5 class="mb-0 fw-bold" id="userName">User</h5>
-            <div class="d-flex align-items-center">
-                <span class="status-indicator"></span>
-                <small class="text-muted" id="lastUpdated">Updating...</small>
-            </div>
+  <div class="tracking-header d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center gap-3">
+      <div class="user-avatar" id="userInitial">?</div>
+      <div>
+        <h5 class="m-0 fw-bold d-flex align-items-center gap-2">
+          <span id="userName">Tracking User</span> 
+          <span class="badge bg-success rounded-pill" style="font-size: 0.6rem;"><span class="pulse-dot me-1"></span> LIVE</span>
+        </h5>
+        <div class="text-muted small mt-1">
+          <i class="fas fa-clock text-pink me-1"></i> Updated: <span id="lastUpdated">Just now</span>
         </div>
+      </div>
     </div>
-    <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-pink rounded-pill px-3 shadow-sm" id="followBtn" onclick="toggleFollow()">
-            <i class="fas fa-location-arrow me-1"></i> Follow
-        </button>
-        <a href="#" id="phoneLink" class="btn btn-light btn-sm rounded-circle shadow-sm border"><i class="fas fa-phone text-pink"></i></a>
+    
+    <div class="text-end">
+        <a id="phoneLink" href="#" class="btn btn-outline-light btn-sm rounded-pill px-3" style="border-color: var(--pink-primary); color: var(--pink-primary);">
+            <i class="fas fa-phone-alt me-1"></i> Call
+        </a>
     </div>
-  </header>
+  </div>
 
   <div id="map"></div>
 
   <!-- Error Modal -->
   <div class="modal fade" id="errorModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow-lg">
+      <div class="modal-content" style="background-color: var(--card-bg); border: 1px solid rgba(233, 30, 140, 0.3);">
         <div class="modal-body text-center p-5">
-          <i class="fas fa-link-slash fa-4x text-danger mb-4 opacity-75"></i>
-          <h4 class="fw-bold mb-2">Session Offline</h4>
-          <p class="text-muted" id="errorText">This tracking link has either expired or was disconnected by the user.</p>
-          <button class="btn btn-outline-secondary btn-sm mt-3 px-4 rounded-pill" onclick="window.location.reload()">Retry Connection</button>
+          <i class="fas fa-link-slash fa-4x text-danger mb-4"></i>
+          <h4 class="fw-bold text-white mb-2">Session Ended</h4>
+          <p class="text-muted" id="errorText">This tracking link has expired or the user has stopped sharing their location.</p>
         </div>
       </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
     
-    let gMap = null;
+    let map = null;
     let marker = null;
-    let isFollowMode = true;
+    let pulseCircle = null;
 
     if (!token) {
-        showError("Invalid tracking link. Token required.");
+        showError("Invalid tracking link. No token provided.");
     } else {
         initTracking();
-    }
-
-    function toggleFollow() {
-        isFollowMode = !isFollowMode;
-        const btn = document.getElementById('followBtn');
-        btn.classList.toggle('btn-pink');
-        btn.classList.toggle('btn-outline-secondary');
-        if (isFollowMode && marker) gMap.panTo(marker.getPosition());
     }
 
     function showError(msg) {
@@ -152,11 +137,11 @@
             const res = await fetch(`/api/location/tracking/public/${token}`);
             if (res.status === 202) {
                 const data = await res.json();
-                return { isWaiting: true, name: data.name, google_maps_key: data.google_maps_key };
+                return { isWaiting: true, name: data.name };
             }
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.error || "Session offline");
+                throw new Error(data.error || "Session ended");
             }
             return await res.json();
         } catch(e) {
@@ -168,18 +153,13 @@
         try {
             const data = await fetchLocation();
             
+            // Setup UI
             document.getElementById('userName').textContent = data.name;
             document.getElementById('userInitial').textContent = data.name.charAt(0).toUpperCase();
             
-            if (!window.google) {
-                if (!data.google_maps_key) {
-                    return showError("Google Maps API Key not configured by user.");
-                }
-                await loadGoogleMaps(data.google_maps_key);
-            }
-
             if (data.isWaiting) {
-                document.getElementById('loadingMsg').textContent = "Waiting for " + data.name + "'s location...";
+                document.getElementById('loadingMsg').textContent = "Waiting for " + data.name + "'s device to send location...";
+                // Keep polling until we get actual data
                 setTimeout(initTracking, 5000);
                 return;
             }
@@ -191,64 +171,46 @@
             }
             updateTime(data.recorded_at);
 
-            setupMap(data.latitude, data.longitude);
+            // Initialize Map
+            map = L.map('map', { zoomControl: false }).setView([data.latitude, data.longitude], 16);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+            marker = L.circleMarker([data.latitude, data.longitude], {
+                radius: 10, fillColor: '#e91e63', color: '#fff', weight: 2, fillOpacity: 1
+            }).addTo(map);
+
+            pulseCircle = L.circleMarker([data.latitude, data.longitude], {
+                radius: 30, fillColor: 'transparent', color: '#e91e63', weight: 1, opacity: 0.6
+            }).addTo(map);
+
             document.getElementById('loadingOverlay').classList.add('d-none');
-            pollLocation();
+
+            // Start Polling Loop (every 5 seconds)
+            setInterval(updateLocation, 5000);
 
         } catch(e) {
             showError(e.message);
         }
     }
 
-    function loadGoogleMaps(key) {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${key}`;
-            script.async = true;
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
-    }
-
-    function setupMap(lat, lng) {
-        const center = { lat, lng };
-        gMap = new google.maps.Map(document.getElementById('map'), {
-            center: center,
-            zoom: 17,
-            disableDefaultUI: true,
-            styles: [{ "featureType": "poi", "stylers": [{ "visibility": "off" }] }]
-        });
-
-        marker = new google.maps.Marker({
-            position: center,
-            map: gMap,
-            icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 10,
-                fillColor: "#4285F4",
-                fillOpacity: 1,
-                strokeColor: "#FFFFFF",
-                strokeWeight: 4
-            }
-        });
-    }
-
-    async function pollLocation() {
+    async function updateLocation() {
         try {
             const data = await fetchLocation();
-            if (!data.isWaiting) {
-                const latlng = { lat: data.latitude, lng: data.longitude };
-                if (marker) {
-                    marker.setPosition(latlng);
-                    if (isFollowMode) gMap.panTo(latlng);
-                }
-                updateTime(data.recorded_at);
+            if (data.isWaiting) return; // Keep waiting for next poll
+
+            const latlng = [data.latitude, data.longitude];
+            
+            if (marker) {
+                marker.setLatLng(latlng);
+                pulseCircle.setLatLng(latlng);
+                map.panTo(latlng, { animate: true });
             }
+            
+            updateTime(data.recorded_at);
         } catch(e) {
-            console.warn("Poll failed", e);
+            // Optional: Show a subtle warning instead of a modal to handle network jitter
+            console.warn("Update failed:", e);
         }
-        setTimeout(pollLocation, 10000);
     }
 
     function updateTime(isoString) {
@@ -256,9 +218,10 @@
         let hours = date.getHours();
         let mins = date.getMinutes();
         const ampm = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12 || 12;
+        hours = hours % 12;
+        hours = hours ? hours : 12;
         mins = mins < 10 ? '0' + mins : mins;
-        document.getElementById('lastUpdated').textContent = `Last seen at ${hours}:${mins} ${ampm}`;
+        document.getElementById('lastUpdated').textContent = `${hours}:${mins} ${ampm}`;
     }
   </script>
 </body>

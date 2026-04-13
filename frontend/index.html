@@ -7,7 +7,7 @@
   <title>SAKHI – YOU ME & HER</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <link rel="stylesheet" href="css/sakhi-v2.css?v=1.4" />
+  <link rel="stylesheet" href="css/sakhi-v2.css?v=1.8" />
   <style>
     body {
       background: url('assets/sakhi-bg-new.png') #000 !important;
@@ -226,6 +226,9 @@
               <i class="fas fa-users"></i> Community</a></li>
           <li><a href="#" onclick="loadTab('analytics')">
               <i class="fas fa-chart-line"></i> Analytics</a></li>
+          <li><a href="#" onclick="loadTab('map')" id="mapNavSafeRoute">
+              <i class="fas fa-route" style="color:#00e676;"></i>
+              <span style="color:#00e676;">Safe Route</span></a></li>
         </ul>
         <div class="sidebar-footer">
           <button class="btn btn-outline-light btn-sm w-100" onclick="logout()">
@@ -608,101 +611,103 @@
             </div>
           </div><!-- /tab-home -->
 
-          <!-- MAP TAB (Google Maps Migration) -->
+          <!-- MAP TAB -->
           <div id="tab-map" class="d-none">
-            <div class="map-wrapper">
+            <!-- ── SAFE ROUTE PLANNER PANEL ───────────────────────────────── -->
+            <div class="safe-route-panel mb-3" id="routePlannerPanel">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="fas fa-route text-success fa-lg"></i>
+                <h6 class="fw-bold m-0">Safe Route Navigation</h6>
+                <span class="badge ms-auto" style="background:rgba(0,230,118,0.15);color:#00e676;border:1px solid rgba(0,230,118,0.4)">
+                  <i class="fas fa-shield-alt me-1"></i>Risk-aware routing
+                </span>
+              </div>
+              <div class="d-flex gap-2 align-items-center">
+                <div class="route-origin-dot"><i class="fas fa-dot-circle text-pink"></i></div>
+                <input type="text" id="routeDestInput" class="form-control"
+                  placeholder="Enter destination (e.g. Bandra Station, Mumbai)" />
+                <button id="planRouteBtn" class="btn btn-success btn-route-plan" onclick="planSafeRoute()">
+                  <i class="fas fa-route me-2"></i>Plan Safe Route
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="clearRoutes()" title="Clear routes">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <div class="route-legend-mini mt-2">
+                <span><span class="route-dot route-dot-safe"></span> Safest</span>
+                <span><span class="route-dot route-dot-medium"></span> Moderate</span>
+                <span><span class="route-dot route-dot-risky"></span> High Risk</span>
+              </div>
+              <div id="routeResults"></div>
+            </div>
+
+            <!-- ── FOLLOW ME (LIVE TRACKING) PANEL ────────────────────────── -->
+            <div class="safe-route-panel mb-3 p-3 rounded" style="background: rgba(233, 30, 140, 0.05); border: 1px solid rgba(233, 30, 140, 0.3);">
+              <div class="d-flex align-items-center gap-2 mb-2 w-100">
+                <i class="fas fa-location-arrow text-pink fa-lg"></i>
+                <h6 class="fw-bold m-0 flex-grow-1">Live Location Sharing (Follow Me)</h6>
+                <div id="trackingStatusBadge" class="badge bg-secondary">Inactive</div>
+              </div>
+              <p class="text-muted small mb-3">Share your real-time secure location link with trusted contacts. Works in background.</p>
               
-              <!-- Sidebar Panel -->
-              <div class="map-sidebar">
-                <div class="map-sidebar-header">
-                  <h6 class="fw-bold mb-1"><i class="fas fa-route text-pink me-2"></i>Map Explorer</h6>
-                  <p class="text-muted small mb-0">Plan safe routes & track status</p>
+              <!-- Inactive State -->
+              <div id="trackingSetupBox" class="d-flex gap-2 align-items-center flex-wrap">
+                <select id="trackingDuration" class="form-select w-auto bg-dark text-white border-secondary">
+                  <option value="15">15 Minutes</option>
+                  <option value="30">30 Minutes</option>
+                  <option value="60" selected>1 Hour</option>
+                  <option value="180">3 Hours</option>
+                  <option value="480">8 Hours</option>
+                </select>
+                <button class="btn btn-pink flex-grow-1 fw-bold" onclick="startLiveTracking()">
+                  <i class="fas fa-share-alt me-2"></i>Generate Share Link
+                </button>
+              </div>
+
+              <!-- Active State -->
+              <div id="trackingActiveBox" class="d-none mt-2">
+                <div class="input-group mb-2">
+                  <input type="text" id="trackingLinkInput" class="form-control bg-dark border-secondary text-info text-center fw-bold" readonly value="https://sakhi.app/track/..." />
+                  <button class="btn btn-outline-secondary" onclick="copyTrackingLink()" title="Copy Link">
+                    <i class="fas fa-copy"></i>
+                  </button>
                 </div>
-                
-                <div class="map-sidebar-content">
-                  
-                  <!-- Tracking Section (Restored & Fixed) -->
-                  <div class="tracking-card-mini">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="small fw-bold"><i class="fas fa-location-arrow text-pink me-1"></i>Follow Me</span>
-                        <div id="trackingStatusBadge" class="badge bg-secondary" style="font-size: 0.6rem;">Inactive</div>
-                    </div>
-                    
-                    <!-- Tracking Setup (ID match for map.js) -->
-                    <div id="trackingSetupBox">
-                        <div class="d-flex gap-2 mb-2">
-                            <select id="trackingDuration" class="form-select form-select-sm">
-                                <option value="15">15 Min</option>
-                                <option value="30">30 Min</option>
-                                <option value="60" selected>1 Hour</option>
-                                <option value="180">3 Hours</option>
-                            </select>
-                            <button class="btn btn-sm btn-pink flex-grow-1" onclick="startLiveTracking()">
-                                Share Link
-                            </button>
-                        </div>
-                    </div>
+                <div class="d-flex gap-2">
+                  <a id="whatsappShareBtn" href="#" target="_blank" class="btn btn-success flex-grow-1">
+                    <i class="fab fa-whatsapp me-2"></i>Send on WhatsApp
+                  </a>
+                  <button class="btn btn-outline-danger px-4" onclick="stopLiveTracking()">
+                    Stop Sharing
+                  </button>
+                </div>
+              </div>
+            </div>
 
-                    <!-- Tracking Active (ID match for map.js) -->
-                    <div id="trackingActiveBox" class="d-none">
-                        <div class="input-group input-group-sm mb-2">
-                            <input type="text" id="trackingLinkInput" class="form-control" readonly />
-                            <button class="btn btn-outline-secondary" onclick="copyTrackingLink()"><i class="fas fa-copy"></i></button>
-                        </div>
-                        <div class="d-flex gap-1">
-                            <a id="whatsappShareBtn" href="#" target="_blank" class="btn btn-success btn-sm flex-grow-1"><i class="fab fa-whatsapp"></i></a>
-                            <button class="btn btn-outline-danger btn-sm" onclick="stopLiveTracking()">Stop</button>
-                        </div>
-                    </div>
-                  </div>
-
-                  <!-- Route Planner -->
-                  <div class="mb-3">
-                    <label class="form-label small fw-bold text-muted">Destination</label>
-                    <div class="input-group mb-2">
-                      <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
-                      <input type="text" id="routeDestInput" class="form-control border-start-0 ps-0" placeholder="Where to go?" />
-                    </div>
-                    <button id="planRouteBtn" class="btn btn-pink w-100 shadow-sm" onclick="planSafeRoute()">
-                      <i class="fas fa-directions me-2"></i>Find Safe Route
-                    </button>
-                  </div>
-
-                  <hr class="opacity-10 my-3">
-
-                  <!-- Results Container -->
-                  <div id="routeResults">
-                    <p class="text-muted text-center small py-4">Search for a destination to see safe route options.</p>
-                  </div>
-
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold m-0"><i class="fas fa-map-marked-alt text-pink me-2"></i>Live Area Map</h5>
+              <span class="badge bg-danger pulse"><i class="fas fa-broadcast-tower me-1"></i>Realtime Engine Active</span>
+            </div>
+            <div class="wsas-card p-0 position-relative" style="overflow: hidden; height: 520px; border: 1px solid rgba(233, 30, 140, 0.4); box-shadow: 0 0 30px rgba(0,0,0,0.5);">
+              <div id="liveMap" style="width:100%; height:100%; filter: contrast(1.1) saturate(1.2);"></div>
+              
+              <!-- Floating Legend Overlay -->
+              <div class="position-absolute bottom-0 start-0 m-3 p-3 rounded" style="background: rgba(20,20,40,0.85); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <h6 class="fw-bold mb-2 pb-2 border-bottom border-secondary small"><i class="fas fa-shield-alt text-pink me-2"></i>Live Legend</h6>
+                <div class="d-flex flex-column gap-2 small mt-2">
+                  <div class="d-flex align-items-center legend-item" onclick="toggleMapLayer('unsafe', this)"><div class="legend-red me-2"></div> High Risk Zone</div>
+                  <div class="d-flex align-items-center legend-item" onclick="toggleMapLayer('reports', this)"><div class="legend-orange me-2"></div> Community Report</div>
+                  <div class="d-flex align-items-center legend-item" onclick="toggleMapLayer('trail', this)"><div class="legend-blue me-2"></div> Tracking Trail</div>
+                  <div class="d-flex align-items-center legend-item" onclick="toggleMapLayer('pos', this)"><div class="legend-green me-2"></div> Current Position</div>
+                  <div class="d-flex align-items-center legend-item" onclick="toggleMapLayer('routes', this)"><div class="legend-route me-2"></div> Safe Routes</div>
                 </div>
               </div>
 
-              <!-- Map Area -->
-              <div class="map-canvas">
-                <div id="liveMap" style="width:100%; height:100%;">
-                    <div class="d-flex align-items-center justify-content-center h-100 bg-light text-muted">
-                        <div class="text-center">
-                            <div class="spinner-border text-pink mb-2" role="status"></div>
-                            <p>Loading Google Maps API...</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Floating Legend -->
-                <div class="position-absolute bottom-0 end-0 m-3 p-2 bg-white rounded shadow-sm border small" style="z-index: 5;">
-                  <div class="d-flex flex-column gap-1">
-                    <div class="d-flex align-items-center gap-2 cursor-pointer" onclick="toggleMapLayer('unsafe', this)">
-                        <span class="rounded-circle" style="width:10px; height:10px; background:#EA4335"></span> Risk Zones
-                    </div>
-                    <div class="d-flex align-items-center gap-2 cursor-pointer" onclick="toggleMapLayer('reports', this)">
-                        <span class="rounded-circle" style="width:10px; height:10px; background:#FBBC05"></span> Reports
-                    </div>
-                  </div>
-                </div>
-
+              <!-- Floating Recenter Button -->
+              <div class="position-absolute top-0 end-0 m-3" style="z-index: 1000;">
+                <button class="btn btn-sm btn-dark" style="background: rgba(20,20,40,0.8); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.1);" onclick="recenterMap()">
+                  <i class="fas fa-crosshairs text-pink me-1"></i> Recenter
+                </button>
               </div>
-
             </div>
           </div>
 
@@ -918,12 +923,12 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="js/api.js?v=1.6"></script>
-  <script src="js/app.js?v=1.6"></script>
-  <script src="js/voice.js?v=1.6"></script>
-  <script src="js/shake.js?v=1.6"></script>
-  <script src="js/map.js?v=1.6"></script>
-  <script src="js/charts.js?v=1.6"></script>
+  <script src="js/api.js?v=2.0"></script>
+  <script src="js/app.js?v=2.0"></script>
+  <script src="js/voice.js?v=2.0"></script>
+  <script src="js/shake.js?v=2.0"></script>
+  <script src="js/map.js?v=2.0"></script>
+  <script src="js/charts.js?v=2.0"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
