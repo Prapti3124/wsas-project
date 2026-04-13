@@ -335,6 +335,14 @@ async function checkTrackingStatus() {
     if (res.is_active && res.token) {
       activeTrackingToken = res.token;
       showTrackingActiveState(res.token);
+      
+      // Force an immediate location update to ensure the public viewer has data
+      if (currentLat && currentLon) {
+        api.post('/location/update', { 
+            latitude: currentLat, longitude: currentLon, 
+            accuracy: currentAcc, speed: 0 
+        }).catch(() => {});
+      }
     } else {
       showTrackingInactiveState();
     }
@@ -355,6 +363,14 @@ async function startLiveTracking() {
       showTrackingActiveState(res.token);
       toast('Live Tracking started successfully.', 'success');
       
+      // Force an immediate location update so data is available for anyone opening the link instantly
+      if (currentLat && currentLon) {
+        await api.post('/location/update', { 
+            latitude: currentLat, longitude: currentLon, 
+            accuracy: currentAcc, speed: 0 
+        }).catch(() => {});
+      }
+
       if (!watchId) startGPS();
     } else {
       console.error('Tracking Error:', res.error);

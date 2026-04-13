@@ -135,6 +135,10 @@
     async function fetchLocation() {
         try {
             const res = await fetch(`/api/location/tracking/public/${token}`);
+            if (res.status === 202) {
+                const data = await res.json();
+                return { isWaiting: true, name: data.name };
+            }
             if (!res.ok) {
                 const data = await res.json();
                 throw new Error(data.error || "Session ended");
@@ -152,6 +156,14 @@
             // Setup UI
             document.getElementById('userName').textContent = data.name;
             document.getElementById('userInitial').textContent = data.name.charAt(0).toUpperCase();
+            
+            if (data.isWaiting) {
+                document.getElementById('loadingMsg').textContent = "Waiting for " + data.name + "'s device to send location...";
+                // Keep polling until we get actual data
+                setTimeout(initTracking, 5000);
+                return;
+            }
+
             if (data.phone) {
                 document.getElementById('phoneLink').href = `tel:${data.phone}`;
             } else {
@@ -184,15 +196,20 @@
     async function updateLocation() {
         try {
             const data = await fetchLocation();
+            if (data.isWaiting) return; // Keep waiting for next poll
+
             const latlng = [data.latitude, data.longitude];
             
-            marker.setLatLng(latlng);
-            pulseCircle.setLatLng(latlng);
-            map.panTo(latlng, { animate: true });
+            if (marker) {
+                marker.setLatLng(latlng);
+                pulseCircle.setLatLng(latlng);
+                map.panTo(latlng, { animate: true });
+            }
             
             updateTime(data.recorded_at);
         } catch(e) {
-            showError("The user has stopped sharing their location.");
+            // Optional: Show a subtle warning instead of a modal to handle network jitter
+            console.warn("Update failed:", e);
         }
     }
 

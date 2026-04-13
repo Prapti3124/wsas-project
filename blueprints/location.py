@@ -278,7 +278,11 @@ def public_tracking(token):
     latest_loc = LocationHistory.query.filter_by(user_id=session.user_id).order_by(LocationHistory.recorded_at.desc()).first()
 
     if not latest_loc:
-         return jsonify({"error": "Location data not available."}), 404
+         return jsonify({
+             "status": "waiting",
+             "message": "User is active but has not sent location data yet.",
+             "name": user.name
+         }), 202
          
     return jsonify({
         "name": user.name,
