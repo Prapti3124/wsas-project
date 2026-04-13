@@ -60,6 +60,9 @@ class Config:
     UNSAFE_HOUR_START      = 21   # 9 PM
     UNSAFE_HOUR_END        = 5    # 5 AM
 
+    # ── Google Maps API ──────────────────────────────────────────────────────
+    GOOGLE_MAPS_API_KEY    = os.getenv("GOOGLE_MAPS_API_KEY", "")
+
     # ── App Settings ──────────────────────────────────────────────────────────
     MAX_CONTACTS           = 5    # Max emergency contacts per user
     ALERT_COOLDOWN_SECONDS = 60   # Prevent alert spam

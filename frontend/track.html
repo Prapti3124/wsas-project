@@ -7,7 +7,6 @@
   
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
   <style>
     :root {
@@ -67,22 +66,12 @@
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
     }
-    .pin-user {
-      width: 24px; height: 24px;
-      background: var(--google-blue);
-      border: 3px solid white;
-      border-radius: 50%;
-      box-shadow: 0 0 15px rgba(66, 133, 244, 0.6);
-    }
     .btn-pink {
       background: var(--pink-primary);
       color: white;
       border: none;
     }
     .btn-pink:hover { background: var(--pink-light); color: white; }
-    
-    /* Popups */
-    .leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
   </style>
 </head>
 <body>
@@ -90,7 +79,7 @@
   <div id="loadingOverlay" class="loading-overlay">
     <div class="spinner-border text-pink mb-3" style="width: 3.5rem; height: 3.5rem;" role="status"></div>
     <h4 class="fw-bold">Establishing Secure Link...</h4>
-    <p class="text-muted" id="loadingMsg">Verifying encryption keys</p>
+    <p class="text-muted" id="loadingMsg">Fetching mapping configuration</p>
   </div>
 
   <header class="track-header d-flex justify-content-between align-items-center">
@@ -120,8 +109,8 @@
       <div class="modal-content border-0 shadow-lg">
         <div class="modal-body text-center p-5">
           <i class="fas fa-link-slash fa-4x text-danger mb-4 opacity-75"></i>
-          <h4 class="fw-bold mb-2">Session Ended</h4>
-          <p class="text-muted" id="errorText">This tracking link has expired or reached its time limit.</p>
+          <h4 class="fw-bold mb-2">Session Offline</h4>
+          <p class="text-muted" id="errorText">This tracking link has either expired or was disconnected by the user.</p>
           <button class="btn btn-outline-secondary btn-sm mt-3 px-4 rounded-pill" onclick="window.location.reload()">Retry Connection</button>
         </div>
       </div>
@@ -129,14 +118,12 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
     
-    let map = null;
+    let gMap = null;
     let marker = null;
-    let pulseCircle = null;
     let isFollowMode = true;
 
     if (!token) {
@@ -150,7 +137,7 @@
         const btn = document.getElementById('followBtn');
         btn.classList.toggle('btn-pink');
         btn.classList.toggle('btn-outline-secondary');
-        if (isFollowMode && marker) map.panTo(marker.getLatLng());
+        if (isFollowMode && marker) gMap.panTo(marker.getPosition());
     }
 
     function showError(msg) {
@@ -165,7 +152,7 @@
             const res = await fetch(`/api/location/tracking/public/${token}`);
             if (res.status === 202) {
                 const data = await res.json();
-                return { isWaiting: true, name: data.name };
+                return { isWaiting: true, name: data.name, google_maps_key: data.google_maps_key };
             }
             if (!res.ok) {
                 const data = await res.json();
@@ -184,8 +171,15 @@
             document.getElementById('userName').textContent = data.name;
             document.getElementById('userInitial').textContent = data.name.charAt(0).toUpperCase();
             
+            if (!window.google) {
+                if (!data.google_maps_key) {
+                    return showError("Google Maps API Key not configured by user.");
+                }
+                await loadGoogleMaps(data.google_maps_key);
+            }
+
             if (data.isWaiting) {
-                document.getElementById('loadingMsg').textContent = "Waiting for " + data.name + "'s device...";
+                document.getElementById('loadingMsg').textContent = "Waiting for " + data.name + "'s location...";
                 setTimeout(initTracking, 5000);
                 return;
             }
@@ -197,29 +191,7 @@
             }
             updateTime(data.recorded_at);
 
-            // Initialize Map (Voyager Theme)
-            map = L.map('map', { 
-                zoomControl: false,
-                attributionControl: false
-            }).setView([data.latitude, data.longitude], 17);
-            
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                maxZoom: 20
-            }).addTo(map);
-
-            marker = L.marker([data.latitude, data.longitude], {
-                icon: L.divIcon({
-                    className: 'pin-user-container',
-                    html: '<div class="pin-user"></div>',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
-                })
-            }).addTo(map);
-
-            pulseCircle = L.circleMarker([data.latitude, data.longitude], {
-                radius: 30, fillColor: 'transparent', color: '#4285F4', weight: 1, opacity: 0.5
-            }).addTo(map);
-
+            setupMap(data.latitude, data.longitude);
             document.getElementById('loadingOverlay').classList.add('d-none');
             pollLocation();
 
@@ -228,22 +200,55 @@
         }
     }
 
+    function loadGoogleMaps(key) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${key}`;
+            script.async = true;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    function setupMap(lat, lng) {
+        const center = { lat, lng };
+        gMap = new google.maps.Map(document.getElementById('map'), {
+            center: center,
+            zoom: 17,
+            disableDefaultUI: true,
+            styles: [{ "featureType": "poi", "stylers": [{ "visibility": "off" }] }]
+        });
+
+        marker = new google.maps.Marker({
+            position: center,
+            map: gMap,
+            icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 10,
+                fillColor: "#4285F4",
+                fillOpacity: 1,
+                strokeColor: "#FFFFFF",
+                strokeWeight: 4
+            }
+        });
+    }
+
     async function pollLocation() {
         try {
             const data = await fetchLocation();
             if (!data.isWaiting) {
-                const latlng = [data.latitude, data.longitude];
+                const latlng = { lat: data.latitude, lng: data.longitude };
                 if (marker) {
-                    marker.setLatLng(latlng);
-                    pulseCircle.setLatLng(latlng);
-                    if (isFollowMode) map.panTo(latlng, { animate: true });
+                    marker.setPosition(latlng);
+                    if (isFollowMode) gMap.panTo(latlng);
                 }
                 updateTime(data.recorded_at);
             }
         } catch(e) {
             console.warn("Poll failed", e);
         }
-        setTimeout(pollLocation, 10000); // 10s intervals for background battery efficiency
+        setTimeout(pollLocation, 10000);
     }
 
     function updateTime(isoString) {

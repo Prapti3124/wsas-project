@@ -7,7 +7,7 @@ import logging
 import requests
 from datetime import datetime, timedelta
 import uuid
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models import LocationHistory, UnsafeZone, CommunityReport, TrackingSession, User
@@ -15,6 +15,16 @@ from ai.risk_engine import haversine_distance
 
 location_bp = Blueprint("location", __name__)
 logger = logging.getLogger(__name__)
+
+@location_bp.route("/config", methods=["GET"])
+@jwt_required()
+def get_map_config():
+    """Returns necessary mapping configuration, specifically the Google Maps API Key."""
+    return jsonify({
+        "google_maps_key": current_app.config.get("GOOGLE_MAPS_API_KEY", ""),
+        "default_lat": 19.0760,  # Mumbai
+        "default_lng": 72.8777
+    })
 
 
 @location_bp.route("/update", methods=["POST"])
@@ -282,7 +292,8 @@ def public_tracking(token):
          return jsonify({
              "status": "waiting",
              "message": "User is active but has not sent location data yet.",
-             "name": user.name
+             "name": user.name,
+             "google_maps_key": current_app.config.get("GOOGLE_MAPS_API_KEY", "")
          }), 202
          
     return jsonify({
@@ -291,5 +302,6 @@ def public_tracking(token):
         "latitude": latest_loc.latitude,
         "longitude": latest_loc.longitude,
         "battery": 85, # placeholder metric
-        "recorded_at": latest_loc.recorded_at.isoformat()
+        "recorded_at": latest_loc.recorded_at.isoformat(),
+        "google_maps_key": current_app.config.get("GOOGLE_MAPS_API_KEY", "")
     }), 200
