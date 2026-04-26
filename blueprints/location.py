@@ -266,21 +266,28 @@ def start_tracking():
     data = request.get_json() or {}
     duration_min = data.get("duration", 60) # Default 1 hour
 
-    # Invalidate any existing active sessions (optimized with bulk update)
-    TrackingSession.query.filter_by(user_id=user_id, is_active=True).update({"is_active": False})
+    try:
+        # Invalidate any existing active sessions (optimized with bulk update)
+        TrackingSession.query.filter_by(user_id=user_id, is_active=True).update(
+            {"is_active": False}, synchronize_session=False
+        )
 
-    # Create new session
-    token = str(uuid.uuid4())
-    expires_at = datetime.utcnow() + timedelta(minutes=int(duration_min))
+        # Create new session
+        token = str(uuid.uuid4())
+        expires_at = datetime.utcnow() + timedelta(minutes=int(duration_min))
 
-    session = TrackingSession(
-        user_id=user_id,
-        token=token,
-        is_active=True,
-        expires_at=expires_at
-    )
-    db.session.add(session)
-    db.session.commit()
+        session = TrackingSession(
+            user_id=user_id,
+            token=token,
+            is_active=True,
+            expires_at=expires_at
+        )
+        db.session.add(session)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error starting tracking for user {user_id}: {e}")
+        return jsonify({"error": "Database error. Please try again later."}), 500
 
     logger.info(f"User {user_id} started live tracking. Expires at {expires_at}")
     return jsonify({

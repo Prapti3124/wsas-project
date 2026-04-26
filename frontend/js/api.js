@@ -45,7 +45,18 @@ const api = {
       }
     }
 
-    return res.json();
+    let data;
+    try {
+        data = await res.json();
+    } catch (e) {
+        // Handle non-JSON responses (like 500 HTML errors)
+        if (!res.ok) {
+            throw new Error(`Server Error (${res.status})`);
+        }
+        throw new Error('Invalid server response');
+    }
+
+    return data;
   },
 
   get(path)        { return this._request('GET', path); },

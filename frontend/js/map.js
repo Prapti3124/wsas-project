@@ -422,7 +422,7 @@ async function startLiveTracking() {
     }
   } catch (err) {
     console.error('Tracking Network Error:', err);
-    toast('Network error starting tracking. Please try again.', 'danger');
+    toast('Network Error: ' + (err.message || 'Please check if server is running.'), 'danger');
     showTrackingInactiveState();
   } finally {
     // Restore button if still in setup state

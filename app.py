@@ -83,6 +83,21 @@ def create_app(config_class=Config):
     def expired_token_callback(jwt_header, jwt_data):
         return {"error": "Token has expired"}, 401
 
+    # ── API Error Handlers ──────────────────────────────────────────────────
+    @app.errorhandler(500)
+    def handle_500(e):
+        if request.path.startswith('/api/'):
+            return jsonify({"error": "Internal server error. Our team has been notified."}), 500
+        return "Internal Server Error", 500
+
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        # Log the full exception
+        app.logger.error(f"Unhandled Exception: {e}", exc_info=True)
+        if request.path.startswith('/api/'):
+            return jsonify({"error": str(e) if app.debug else "An unexpected error occurred."}), 500
+        return "An unexpected error occurred.", 500
+
     # ── Create DB Tables ─────────────────────────────────────────────────────
     with app.app_context():
         db.create_all()
