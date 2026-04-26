@@ -323,16 +323,20 @@ def tracking_status():
 @location_bp.route("/tracking/public/<token>", methods=["GET"])
 def public_tracking(token):
     try:
-        session = TrackingSession.query.filter_by(token=token, is_active=True).first()
+        session = TrackingSession.query.filter_by(token=token).first()
         
-        # Add a 5-minute buffer to account for clock drift between server and client
         if not session:
-            logger.warning(f"Public Tracking: Token {token[:8]}... not found or already inactive.")
-            return jsonify({"error": "This tracking link is invalid or the session has ended."}), 404
+            logger.warning(f"Public Tracking: Token {token[:8]}... NOT FOUND in DB.")
+            return jsonify({"error": "Tracking link is invalid. Please check the URL."}), 404
+
+        if not session.is_active:
+            logger.warning(f"Public Tracking: Token {token[:8]}... is INACTIVE.")
+            return jsonify({"error": "This tracking session has ended or been stopped by the user."}), 404
 
         now = datetime.utcnow()
+        # Add a 5-minute buffer to account for clock drift between server and client
         if session.expires_at < (now - timedelta(minutes=5)):
-            logger.warning(f"Public Tracking: Token {token[:8]}... expired at {session.expires_at} (Current UTC: {now})")
+            logger.warning(f"Public Tracking: Token {token[:8]}... EXPIRED at {session.expires_at} (Current UTC: {now})")
             return jsonify({"error": "This tracking link has expired."}), 404
 
         user = db.session.get(User, session.user_id)

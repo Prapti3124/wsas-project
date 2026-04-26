@@ -105,11 +105,20 @@
       <div class="modal-content" style="background-color: var(--card-bg); border: 1px solid rgba(233, 30, 140, 0.3);">
         <div class="modal-body text-center p-5">
           <i class="fas fa-link-slash fa-4x text-danger mb-4"></i>
-          <h4 class="fw-bold text-white mb-2">Session Ended</h4>
+          <h4 class="fw-bold text-white mb-2" id="errorTitle">Session Ended</h4>
           <p class="text-muted" id="errorText">This tracking link has expired or the user has stopped sharing their location.</p>
-          <div class="mt-4 d-grid">
+          
+          <div id="debugInfo" class="d-none text-start mt-3 p-2 rounded bg-black" style="font-family: monospace; font-size: 0.7rem; border: 1px solid #333;">
+              <div class="text-secondary">Token: <span id="debugToken" class="text-info"></span></div>
+              <div class="text-secondary">Status: <span id="debugStatus" class="text-warning"></span></div>
+          </div>
+
+          <div class="mt-4 d-grid gap-2">
               <button class="btn btn-pink py-2" onclick="location.reload()">
                   <i class="fas fa-sync-alt me-2"></i> Try Again / Refresh
+              </button>
+              <button class="btn btn-link btn-sm text-secondary text-decoration-none" onclick="toggleDebug()">
+                  <i class="fas fa-bug me-1"></i> Technical Details
               </button>
           </div>
         </div>
@@ -127,8 +136,8 @@
     let marker = null;
     let pulseCircle = null;
     let initRetries = 0;
-    const MAX_INIT_RETRIES = 4;   // Try up to 4 times before giving up
-    const RETRY_DELAY_MS = 3000; // Wait 3 seconds between retries
+    const MAX_INIT_RETRIES = 12;   // Increased to 12 attempts (~30 seconds total)
+    const RETRY_DELAY_MS = 2500;   // 2.5 seconds between retries
 
     if (!token) {
         showError("Invalid tracking link. No token provided.");
@@ -136,11 +145,18 @@
         initTracking();
     }
 
-    function showError(msg) {
+    function showError(msg, title = "Session Ended", status = "Error") {
         document.getElementById('loadingOverlay').classList.add('d-none');
+        document.getElementById('errorTitle').textContent = title;
         document.getElementById('errorText').textContent = msg;
+        document.getElementById('debugToken').textContent = token || 'None';
+        document.getElementById('debugStatus').textContent = status;
         const errModal = new bootstrap.Modal(document.getElementById('errorModal'));
         errModal.show();
+    }
+
+    function toggleDebug() {
+        document.getElementById('debugInfo').classList.toggle('d-none');
     }
 
     // Returns location data, throws only on definitive "session expired" (404).
@@ -161,9 +177,8 @@
         }
 
         if (res.status === 404) {
-            // Usually definitive, but we'll return a special status to allow a few retries 
-            // in case of database propagation lag.
-            return { is404: true };
+            const data = await res.json().catch(() => ({}));
+            return { is404: true, error: data.error, status: res.status };
         }
 
         if (!res.ok) {
@@ -191,14 +206,16 @@
         if (data === null || data.is404) {
             initRetries++;
             if (initRetries <= MAX_INIT_RETRIES) {
-                const reason = data && data.is404 ? "Session not found yet" : "Connecting";
+                const reason = data && data.is404 ? "Verifying Session" : "Connecting";
                 loadingMsg.textContent = `${reason}... (attempt ${initRetries + 1} of ${MAX_INIT_RETRIES + 1})`;
                 setTimeout(initTracking, RETRY_DELAY_MS);
                 return;
             } else {
-                showError(data && data.is404 ? 
-                    'This tracking link has expired or is no longer active.' : 
-                    'Could not connect to the tracking server. Please check your connection and try again.');
+                if (data && data.is404) {
+                    showError(data.error || 'Tracking link is no longer active.', "Link Error", `HTTP 404`);
+                } else {
+                    showError('Could not connect to the tracking server. Please check your connection and try again.', "Connection Failed", "Network Error");
+                }
                 return;
             }
         }
