@@ -289,10 +289,15 @@ def start_tracking():
         logger.error(f"Error starting tracking for user {user_id}: {e}")
         return jsonify({"error": "Database error. Please try again later."}), 500
 
+    # Determine base URL for the tracking link
+    base_url = request.host_url.rstrip('/')
+    tracking_url = f"{base_url}/track.html?token={token}"
+
     logger.info(f"User {user_id} started live tracking. Expires at {expires_at}")
     return jsonify({
         "message": "Tracking started",
         "token": token,
+        "url": tracking_url,
         "expires_at": expires_at.isoformat()
     }), 201
 
@@ -319,7 +324,10 @@ def tracking_status():
     session = TrackingSession.query.filter_by(user_id=user_id, is_active=True).first()
     
     if session and session.expires_at > datetime.utcnow():
-        return jsonify(session.to_dict()), 200
+        data = session.to_dict()
+        base_url = request.host_url.rstrip('/')
+        data["url"] = f"{base_url}/track.html?token={session.token}"
+        return jsonify(data), 200
     
     if session and session.expires_at <= datetime.utcnow():
         session.is_active = False

@@ -357,7 +357,7 @@ async function checkTrackingStatus() {
     const res = await api.get('/location/tracking/status');
     if (res.is_active && res.token) {
       activeTrackingToken = res.token;
-      showTrackingActiveState(res.token);
+      showTrackingActiveState(res.token, res.url);
       
       // Force an immediate location update to ensure the public viewer has data
       if (currentLat && currentLon) {
@@ -402,7 +402,7 @@ async function startLiveTracking() {
     
     if (res.token) {
       activeTrackingToken = res.token;
-      showTrackingActiveState(res.token);
+      showTrackingActiveState(res.token, res.url);
       toast('✅ Live Tracking started! Share the link below.', 'success');
       
       // Fire-and-forget: push current location so the link works immediately
@@ -445,20 +445,32 @@ async function stopLiveTracking() {
   }
 }
 
-function showTrackingActiveState(token) {
-  // Add a cache-busting timestamp to force laptop browsers to reload the fresh link
-  const link = `${window.location.origin}/track.html?token=${token}&ts=${Date.now()}`;
-  document.getElementById('trackingLinkInput').value = link;
+function showTrackingActiveState(token, providedUrl = null) {
+  // Use provided URL or build one as fallback
+  const link = providedUrl || `${window.location.origin}/track.html?token=${token}&ts=${Date.now()}`;
   
-  document.getElementById('trackingSetupBox').classList.add('d-none');
-  document.getElementById('trackingActiveBox').classList.remove('d-none');
+  const linkInput = document.getElementById('trackingLinkInput');
+  if (linkInput) {
+    linkInput.value = link;
+  }
   
-  document.getElementById('trackingStatusBadge').textContent = 'Live & Sharing';
-  document.getElementById('trackingStatusBadge').className = 'badge bg-success pulse';
+  const setupBox = document.getElementById('trackingSetupBox');
+  const activeBox = document.getElementById('trackingActiveBox');
+  
+  if (setupBox) setupBox.classList.add('d-none');
+  if (activeBox) activeBox.classList.remove('d-none');
+  
+  const statusBadge = document.getElementById('trackingStatusBadge');
+  if (statusBadge) {
+    statusBadge.textContent = 'Live & Sharing';
+    statusBadge.className = 'badge bg-success pulse';
+  }
 
   // Setup WhatsApp link
   const waBtn = document.getElementById('whatsappShareBtn');
-  waBtn.href = `https://api.whatsapp.com/send?text=Follow%20my%20live%20location%20on%20SAKHI%20safely:%20${encodeURIComponent(link)}`;
+  if (waBtn) {
+    waBtn.href = `https://api.whatsapp.com/send?text=Follow%20my%20live%20location%20on%20SAKHI%20safely:%20${encodeURIComponent(link)}`;
+  }
 }
 
 function showTrackingInactiveState() {
