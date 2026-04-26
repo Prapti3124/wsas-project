@@ -266,10 +266,8 @@ def start_tracking():
     data = request.get_json() or {}
     duration_min = data.get("duration", 60) # Default 1 hour
 
-    # Invalidate any existing active sessions
-    active_sessions = TrackingSession.query.filter_by(user_id=user_id, is_active=True).all()
-    for s in active_sessions:
-        s.is_active = False
+    # Invalidate any existing active sessions (optimized with bulk update)
+    TrackingSession.query.filter_by(user_id=user_id, is_active=True).update({"is_active": False})
 
     # Create new session
     token = str(uuid.uuid4())
@@ -324,31 +322,43 @@ def tracking_status():
 
 @location_bp.route("/tracking/public/<token>", methods=["GET"])
 def public_tracking(token):
-    session = TrackingSession.query.filter_by(token=token, is_active=True).first()
-    
-    if not session or session.expires_at < datetime.utcnow():
-        return jsonify({"error": "Link expired or invalid."}), 404
+    try:
+        session = TrackingSession.query.filter_by(token=token, is_active=True).first()
+        
+        # Add a 5-minute buffer to account for clock drift between server and client
+        if not session:
+            logger.warning(f"Public Tracking: Token {token[:8]}... not found or already inactive.")
+            return jsonify({"error": "This tracking link is invalid or the session has ended."}), 404
 
-    user = db.session.get(User, session.user_id)
-    if not user:
-        err_msg = f"User not found (UID: {session.user_id}, SID: {token[:8]}...)"
-        logger.error(f"Public Tracking: {err_msg}")
-        return jsonify({"error": err_msg}), 404
+        now = datetime.utcnow()
+        if session.expires_at < (now - timedelta(minutes=5)):
+            logger.warning(f"Public Tracking: Token {token[:8]}... expired at {session.expires_at} (Current UTC: {now})")
+            return jsonify({"error": "This tracking link has expired."}), 404
 
-    latest_loc = LocationHistory.query.filter_by(user_id=session.user_id).order_by(LocationHistory.recorded_at.desc()).first()
+        user = db.session.get(User, session.user_id)
+        if not user:
+            err_msg = f"User not found (UID: {session.user_id}, SID: {token[:8]}...)"
+            logger.error(f"Public Tracking: {err_msg}")
+            return jsonify({"error": err_msg}), 404
 
-    if not latest_loc:
-         return jsonify({
-             "status": "waiting",
-             "message": "User is active but has not sent location data yet.",
-             "name": user.name
-         }), 202
-         
-    return jsonify({
-        "name": user.name,
-        "phone": user.phone,
-        "latitude": latest_loc.latitude,
-        "longitude": latest_loc.longitude,
-        "battery": 85, # placeholder metric
-        "recorded_at": latest_loc.recorded_at.isoformat()
-    }), 200
+        latest_loc = LocationHistory.query.filter_by(user_id=session.user_id).order_by(LocationHistory.recorded_at.desc()).first()
+
+        if not latest_loc:
+             return jsonify({
+                 "status": "waiting",
+                 "message": "User is active but has not sent location data yet.",
+                 "name": user.name
+             }), 202
+             
+        return jsonify({
+            "name": user.name,
+            "phone": user.phone,
+            "latitude": latest_loc.latitude,
+            "longitude": latest_loc.longitude,
+            "battery": 85, # placeholder metric
+            "recorded_at": latest_loc.recorded_at.isoformat()
+        }), 200
+
+    except Exception as e:
+        logger.error(f"public_tracking DB error for token {token[:8]}...: {e}")
+        return jsonify({"error": "Server temporarily unavailable. Please retry."}), 503

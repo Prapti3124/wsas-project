@@ -374,21 +374,41 @@ async function checkTrackingStatus() {
 
 async function startLiveTracking() {
   const duration = document.getElementById('trackingDuration').value;
-  document.getElementById('trackingStatusBadge').textContent = 'Starting...';
-  document.getElementById('trackingStatusBadge').className = 'badge bg-warning text-dark';
+  const btn = document.querySelector('#trackingSetupBox .btn-pink');
+  const originalBtnHtml = btn ? btn.innerHTML : '';
+
+  // Show loading state on button IMMEDIATELY so user knows it's working
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Connecting...';
+  }
+  document.getElementById('trackingStatusBadge').textContent = 'Generating...';
+  document.getElementById('trackingStatusBadge').className = 'badge bg-warning text-dark pulse';
   
   try {
+    // Add a small artificial delay if it's too fast, to show the 'Securing' state
+    // but only if the actual request is very fast. 
+    // Usually the API roundtrip is enough.
+    
+    setTimeout(() => {
+        if (document.getElementById('trackingStatusBadge').textContent === 'Generating...') {
+            document.getElementById('trackingStatusBadge').textContent = 'Securing Link...';
+            if (btn) btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Securing...';
+        }
+    }, 800);
+
     const res = await api.post('/location/tracking/start', { duration: parseInt(duration) });
     console.log('Tracking Start Response:', res);
     
     if (res.token) {
       activeTrackingToken = res.token;
       showTrackingActiveState(res.token);
-      toast('Live Tracking started successfully.', 'success');
+      toast('✅ Live Tracking started! Share the link below.', 'success');
       
-      // Force an immediate location update so data is available for anyone opening the link instantly
+      // Fire-and-forget: push current location so the link works immediately
+      // Do NOT await this — show the link right away
       if (currentLat && currentLon) {
-        await api.post('/location/update', { 
+        api.post('/location/update', { 
             latitude: currentLat, longitude: currentLon, 
             accuracy: currentAcc, speed: 0 
         }).catch(() => {});
@@ -402,8 +422,14 @@ async function startLiveTracking() {
     }
   } catch (err) {
     console.error('Tracking Network Error:', err);
-    toast('Network error starting tracking.', 'danger');
+    toast('Network error starting tracking. Please try again.', 'danger');
     showTrackingInactiveState();
+  } finally {
+    // Restore button if still in setup state
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHtml;
+    }
   }
 }
 
