@@ -155,6 +155,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     email: document.getElementById('regEmail').value,
     password: document.getElementById('regPassword').value,
     phone: document.getElementById('regPhone').value,
+    role: document.getElementById('regRole').value,
   };
   try {
     const res = await api.post('/auth/register', body);
@@ -256,8 +257,14 @@ function handleAuthSuccess(res) {
   localStorage.setItem('wsas_token', accessToken);
   localStorage.setItem('wsas_refresh', refreshToken);
   localStorage.setItem('wsas_user', JSON.stringify(currentUser));
-  showSection('dashboard');
-  toast('Welcome back, ' + currentUser.name + '! 💙', 'success');
+  
+  // Route based on role: admins go to admin dashboard, users go to main app
+  if (currentUser.role === 'admin') {
+    window.location.href = 'admin.html';
+  } else {
+    showSection('dashboard');
+    toast('Welcome back, ' + currentUser.name + '! 💙', 'success');
+  }
 }
 
 
