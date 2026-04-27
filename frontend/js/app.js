@@ -357,6 +357,12 @@ function initDashboard() {
     const photo = currentUser.profile_photo || null;
     updateAvatarIcon('userAvatar', currentUser.name[0], photo);
     document.getElementById('userNameDisplay').textContent = currentUser.name;
+    
+    // Show admin panel link if role is admin
+    if (currentUser.role === 'admin') {
+      const adminNav = document.getElementById('navAdminPanel');
+      if (adminNav) adminNav.classList.remove('d-none');
+    }
   }
 
   // Start clock

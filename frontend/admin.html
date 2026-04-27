@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAKHI Admin Dashboard</title>
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/sakhi-v2.css?v=1.8" />
+  
+  <style>
+    body {
+      background: url('assets/sakhi-bg-new.png') #000 !important;
+      background-size: 85% auto !important;
+      background-position: center center !important;
+      background-repeat: no-repeat !important;
+      background-attachment: fixed !important;
+    }
+    .sidebar, .topbar { background: rgba(15, 15, 26, 0.5) !important; backdrop-filter: blur(12px) !important; }
+    .wsas-card { background: rgba(20, 20, 40, 0.4) !important; backdrop-filter: blur(8px) !important; border: 1px solid rgba(255,255,255,0.05); }
+    
+    .stat-card {
+        border-radius: 12px;
+        padding: 20px;
+        color: white;
+        text-align: center;
+        background: linear-gradient(145deg, rgba(30,30,50,0.8), rgba(20,20,40,0.9));
+        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .stat-card h3 { font-size: 2rem; font-weight: 700; margin-top: 10px; margin-bottom: 0; }
+    .stat-card p { color: #aaa; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0; }
+    
+    .table-dark-custom {
+        background-color: transparent !important;
+    }
+    .table-dark-custom th {
+        background-color: rgba(255,255,255,0.05) !important;
+        color: #fff;
+        border-bottom: 2px solid rgba(255,255,255,0.1);
+    }
+    .table-dark-custom td {
+        background-color: transparent !important;
+        color: #ddd;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        vertical-align: middle;
+    }
+    
+    #adminMap { height: 400px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+  </style>
+</head>
+<body class="text-white">
+
+  <!-- ── TOPBAR ────────────────────────────────────────────────────────────── -->
+  <div class="topbar d-flex justify-content-between align-items-center p-3 fixed-top border-bottom border-secondary">
+    <div class="d-flex align-items-center">
+      <button class="btn btn-dark d-md-none me-3" onclick="document.querySelector('.sidebar').classList.toggle('active')">
+        <i class="fas fa-bars"></i>
+      </button>
+      <h5 class="m-0 fw-bold"><span class="text-pink">SAKHI</span> <span class="badge bg-danger ms-1">ADMIN</span></h5>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+      <div id="adminNameDisplay" class="fw-bold d-none d-md-block">Admin User</div>
+      <div class="user-avatar" id="adminAvatarInitials">A</div>
+      <button class="btn btn-outline-danger btn-sm" onclick="logout()">Logout</button>
+      <a href="index.html" class="btn btn-outline-light btn-sm"><i class="fas fa-arrow-left me-1"></i> User App</a>
+    </div>
+  </div>
+
+  <!-- ── SIDEBAR ───────────────────────────────────────────────────────────── -->
+  <div class="sidebar border-end border-secondary pt-3" style="margin-top: 60px;">
+    <ul class="nav flex-column gap-2 px-2">
+      <li class="nav-item">
+        <a class="nav-link active" href="#" onclick="showAdminSection('dashboard')">
+          <i class="fas fa-chart-line"></i> Overview
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" onclick="showAdminSection('users')">
+          <i class="fas fa-users"></i> Users
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" onclick="showAdminSection('zones')">
+          <i class="fas fa-map-marked-alt"></i> Unsafe Zones
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" onclick="showAdminSection('reports')">
+          <i class="fas fa-exclamation-triangle"></i> Reports
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ── MAIN CONTENT ──────────────────────────────────────────────────────── -->
+  <div class="main-content p-4" style="margin-top: 60px;">
+
+    <!-- 1. OVERVIEW -->
+    <div id="section-dashboard" class="admin-section">
+      <h3 class="fw-bold mb-4">System Overview</h3>
+      
+      <div class="row g-4 mb-4">
+        <div class="col-md-3">
+          <div class="stat-card">
+            <i class="fas fa-users text-info fs-3"></i>
+            <h3 id="statTotalUsers">0</h3>
+            <p>Total Users</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card">
+            <i class="fas fa-bell text-danger fs-3"></i>
+            <h3 id="statTotalAlerts">0</h3>
+            <p>Total Alerts</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card">
+            <i class="fas fa-exclamation-circle text-warning fs-3"></i>
+            <h3 id="statUnverifiedReports">0</h3>
+            <p>Unverified Reports</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card">
+            <i class="fas fa-map-pin text-pink fs-3"></i>
+            <h3 id="statUnsafeZones">0</h3>
+            <p>Active Unsafe Zones</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="wsas-card p-4 rounded-3 mb-4">
+        <h5 class="fw-bold mb-3"><i class="fas fa-chart-area text-pink me-2"></i>Alerts (Past 30 Days)</h5>
+        <canvas id="alertsChart" height="80"></canvas>
+      </div>
+    </div>
+
+    <!-- 2. USERS -->
+    <div id="section-users" class="admin-section d-none">
+      <h3 class="fw-bold mb-4">User Management</h3>
+      <div class="wsas-card p-4 rounded-3">
+        <div class="table-responsive">
+          <table class="table table-dark-custom">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr><td colspan="5" class="text-center py-4">Loading users...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. UNSAFE ZONES -->
+    <div id="section-zones" class="admin-section d-none">
+      <h3 class="fw-bold mb-4">Unsafe Zones Management</h3>
+      <div class="row g-4">
+        <div class="col-md-8">
+          <div class="wsas-card p-3 rounded-3">
+            <div id="adminMap"></div>
+            <p class="text-muted small mt-2 mb-0"><i class="fas fa-info-circle me-1"></i> Click anywhere on the map to add a new unsafe zone.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="wsas-card p-3 rounded-3 h-100">
+            <h5 class="fw-bold mb-3">Add New Zone</h5>
+            <form id="addZoneForm">
+              <input type="hidden" id="zoneLat">
+              <input type="hidden" id="zoneLon">
+              <div class="mb-3">
+                <label class="form-label text-muted small">Coordinates</label>
+                <input type="text" id="zoneCoords" class="form-control bg-dark border-secondary text-white" readonly placeholder="Click on map first">
+              </div>
+              <div class="mb-3">
+                <label class="form-label text-muted small">Zone Name</label>
+                <input type="text" id="zoneName" class="form-control bg-dark border-secondary text-white" placeholder="e.g., Abandoned Factory" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label text-muted small">Crime Score (0-100)</label>
+                <input type="number" id="zoneScore" class="form-control bg-dark border-secondary text-white" min="0" max="100" value="70" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label text-muted small">Radius (Meters)</label>
+                <input type="number" id="zoneRadius" class="form-control bg-dark border-secondary text-white" min="50" max="2000" value="300" required>
+              </div>
+              <button type="submit" class="btn btn-danger w-100" id="btnSaveZone" disabled>Save Zone</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. REPORTS -->
+    <div id="section-reports" class="admin-section d-none">
+      <h3 class="fw-bold mb-4">Community Reports</h3>
+      <div class="wsas-card p-4 rounded-3">
+        <div class="table-responsive">
+          <table class="table table-dark-custom">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="reportsTableBody">
+              <tr><td colspan="6" class="text-center py-4">Loading reports...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1060">
+    <div id="liveToast" class="toast align-items-center text-white bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body fw-medium" id="toastMsg"></div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/api.js"></script>
+  
+  <script>
+    // Essential Auth checking before loading full admin JS
+    let accessToken = localStorage.getItem('wsas_token');
+    let refreshToken = localStorage.getItem('wsas_refresh');
+    let userData = null;
+    try {
+      if(localStorage.getItem('wsas_user')) {
+        userData = JSON.parse(localStorage.getItem('wsas_user'));
+      }
+    } catch(e) {}
+
+    function logout() {
+      localStorage.removeItem('wsas_token');
+      localStorage.removeItem('wsas_refresh');
+      localStorage.removeItem('wsas_user');
+      window.location.href = 'index.html';
+    }
+
+    if (!accessToken || !userData || userData.role !== 'admin') {
+      window.location.href = 'index.html'; // Redirect non-admins
+    } else {
+      document.getElementById('adminNameDisplay').textContent = userData.name;
+      document.getElementById('adminAvatarInitials').textContent = userData.name.charAt(0).toUpperCase();
+    }
+  </script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
