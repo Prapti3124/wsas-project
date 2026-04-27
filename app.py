@@ -112,8 +112,8 @@ def _seed_admin():
     from extensions import db
     from werkzeug.security import generate_password_hash
 
-    admin_email = os.getenv("ADMIN_EMAIL", "praptitembhe07@gmail.com")
-    admin_password = os.getenv("ADMIN_PASSWORD", "Prapti@2004")
+    admin_email = os.getenv("ADMIN_EMAIL", "praptitembhe@gmail.com")
+    admin_password = os.getenv("ADMIN_PASSWORD", "PRAPTi@31")
     admin_name = os.getenv("ADMIN_NAME", "Prapti")
 
     existing = User.query.filter_by(email=admin_email).first()
