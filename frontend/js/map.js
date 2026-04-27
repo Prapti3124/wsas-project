@@ -439,7 +439,7 @@ async function startLiveTracking() {
         }).catch(() => {});
       }
 
-      if (!watchId) startGPS();
+      // Removed watchId check as startGPS() is already initialized globally
       startTrackingPushLoop();
     } else {
       console.error('Tracking Error:', res.error);
