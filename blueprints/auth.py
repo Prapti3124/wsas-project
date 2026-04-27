@@ -105,9 +105,6 @@ def register():
     email    = str(data.get("email", "")).strip().lower()
     password = str(data.get("password", ""))
     phone    = str(data.get("phone", "")).strip()
-    # Accept 'user' or 'admin' role, defaulting to 'user' for security
-    requested_role = str(data.get("role", "user")).strip().lower()
-    role = "admin" if requested_role == "admin" else "user"
 
     errors = {}
     if not name or len(name) < 2:
@@ -138,9 +135,6 @@ def register():
         user = User(name=name, email=email, phone=phone)
         user.set_password(password)
         db.session.add(user)
-
-    # Set the role (admin or user)
-    user.role = role
 
     # Finalize registration
     user.is_email_verified = True

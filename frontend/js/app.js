@@ -155,7 +155,6 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     email: document.getElementById('regEmail').value,
     password: document.getElementById('regPassword').value,
     phone: document.getElementById('regPhone').value,
-    role: document.getElementById('regRole').value,
   };
   try {
     const res = await api.post('/auth/register', body);
