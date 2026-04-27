@@ -383,3 +383,28 @@ def change_password():
     db.session.commit()
     logger.info(f"Password changed for user {user_id}")
     return jsonify({"message": "Password updated successfully"}), 200
+
+
+@auth_bp.route("/make-me-admin", methods=["POST"])
+@jwt_required()
+def make_me_admin():
+    """Hidden endpoint to easily promote the current user to Admin (useful for Render ephemeral DBs)."""
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+        
+    user.role = "admin"
+    db.session.commit()
+    
+    # Must re-issue tokens because 'role' is baked into the JWT claims
+    access_token  = create_access_token(identity=str(user.id), additional_claims={"role": user.role})
+    refresh_token = create_refresh_token(identity=str(user.id))
+    
+    return jsonify({
+        "message": "You are now an admin!",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "user": user.to_dict()
+    }), 200
+
