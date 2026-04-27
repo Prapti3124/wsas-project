@@ -17,8 +17,27 @@ function toast(msg, type = 'info') {
 }
 
 function showAdminSection(id) {
+    // Hide all sections
     document.querySelectorAll('.admin-section').forEach(el => el.classList.add('d-none'));
+    
+    // Show target section
     document.getElementById('section-' + id).classList.remove('d-none');
+    
+    // Update topbar title
+    const titles = {
+        'dashboard': 'Overview',
+        'users': 'User Management',
+        'zones': 'Unsafe Zones',
+        'reports': 'Community Reports'
+    };
+    if (document.getElementById('tabTitle')) {
+        document.getElementById('tabTitle').textContent = titles[id];
+    }
+    
+    // Manage sidebar active states
+    document.querySelectorAll('.sidebar-nav a').forEach(el => el.classList.remove('active'));
+    const activeLink = document.getElementById('nav-' + id);
+    if (activeLink) activeLink.classList.add('active');
     
     // Refresh data depending on section
     if (id === 'dashboard') loadDashboardStats();
@@ -30,8 +49,8 @@ function showAdminSection(id) {
     if (id === 'reports') loadReports();
     
     // Mobile sidebar toggle fix
-    const sidebar = document.querySelector('.sidebar');
-    if (sidebar.classList.contains('active')) {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && sidebar.classList.contains('active')) {
         sidebar.classList.remove('active');
     }
 }
