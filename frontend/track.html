@@ -202,20 +202,21 @@
             return;
         }
 
-        // Handle 404 or transient failures (null)
-        if (data === null || data.is404) {
+        // Handle 404 (session expired/invalid) - don't retry
+        if (data && data.is404) {
+            showError(data.error || 'Tracking link is no longer active.', "Link Error", `HTTP 404`);
+            return;
+        }
+
+        // Handle transient failures (null)
+        if (data === null) {
             initRetries++;
             if (initRetries <= MAX_INIT_RETRIES) {
-                const reason = data && data.is404 ? "Verifying Session" : "Connecting";
-                loadingMsg.textContent = `${reason}... (attempt ${initRetries + 1} of ${MAX_INIT_RETRIES + 1})`;
+                loadingMsg.textContent = `Connecting... (attempt ${initRetries + 1} of ${MAX_INIT_RETRIES + 1})`;
                 setTimeout(initTracking, RETRY_DELAY_MS);
                 return;
             } else {
-                if (data && data.is404) {
-                    showError(data.error || 'Tracking link is no longer active.', "Link Error", `HTTP 404`);
-                } else {
-                    showError('Could not connect to the tracking server. Please check your connection and try again.', "Connection Failed", "Network Error");
-                }
+                showError('Could not connect to the tracking server. Please check your connection and try again.', "Connection Failed", "Network Error");
                 return;
             }
         }

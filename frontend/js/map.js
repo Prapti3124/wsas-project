@@ -300,7 +300,9 @@ async function planSafeRoute() {
             <div>
               <div class="fw-semibold small">${r.label}</div>
               <div class="text-muted" style="font-size:0.75rem;">
-                <i class="fas ${mode.icon} me-1" style="width:14px; text-align:center;"></i> ${mode.label} &nbsp;·&nbsp;
+                <i class="fas ${mode.icon} me-1" style="width:14px; text-align:center;"></i> ${mode.label} 
+                ${['bus', 'train', 'plane'].includes(r.profile) ? '<span class="badge bg-secondary ms-1" style="font-size:0.6rem;">Estimated</span>' : ''}
+                &nbsp;·&nbsp;
                 📏 ${r.distance_km} km &nbsp;·&nbsp; ⏱ ${duration}
               </div>
             </div>
@@ -351,6 +353,27 @@ function clearRoutes() {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 let activeTrackingToken = null;
+let trackingPushInterval = null;
+
+function startTrackingPushLoop() {
+  if (trackingPushInterval) clearInterval(trackingPushInterval);
+  trackingPushInterval = setInterval(() => {
+    if (currentLat && currentLon && activeTrackingToken) {
+      api.post('/location/update', {
+          latitude: currentLat, longitude: currentLon,
+          accuracy: currentAcc || 0, speed: 0
+      }).catch(() => {});
+    }
+  }, 5000); // Push every 5 seconds
+}
+
+function stopTrackingPushLoop() {
+  if (trackingPushInterval) {
+    clearInterval(trackingPushInterval);
+    trackingPushInterval = null;
+  }
+}
+
 
 async function checkTrackingStatus() {
   try {
@@ -366,6 +389,8 @@ async function checkTrackingStatus() {
             accuracy: currentAcc, speed: 0 
         }).catch(() => {});
       }
+      
+      startTrackingPushLoop();
     } else {
       showTrackingInactiveState();
     }
@@ -415,6 +440,7 @@ async function startLiveTracking() {
       }
 
       if (!watchId) startGPS();
+      startTrackingPushLoop();
     } else {
       console.error('Tracking Error:', res.error);
       toast('Error starting tracking: ' + (res.error || 'Unknown error'), 'danger');
@@ -474,6 +500,8 @@ function showTrackingActiveState(token, providedUrl = null) {
 }
 
 function showTrackingInactiveState() {
+  stopTrackingPushLoop();
+  
   document.getElementById('trackingSetupBox').classList.remove('d-none');
   document.getElementById('trackingActiveBox').classList.add('d-none');
   

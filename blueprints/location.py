@@ -113,7 +113,7 @@ def safe_route():
 
     # 1. Determine profiles to fetch from OSRM
     profiles_to_try = ["driving"]
-    if direct_dist_km < 10: # Only suggest walking for < 10km
+    if direct_dist_km < 5: # Only suggest walking for < 5km
         profiles_to_try.append("walking")
     
     routes = []
@@ -136,10 +136,6 @@ def safe_route():
                     dist_m = r["distance"]
                     duration_sec = r["duration"]
                     
-                    if profile == "walking":
-                        # Adjust walking speed to 5km/h for safety calculations
-                        duration_sec = (dist_m / 1000) / 5.0 * 3600
-                    
                     coords = r["geometry"]["coordinates"] # [[lon, lat], ...]
                     
                     # Store as original profile
@@ -153,7 +149,7 @@ def safe_route():
             logger.warning(f"OSRM {profile} failed: {e}")
 
     # 2. Synthesize additional modes (Bus/Train/Flight) based on distance
-    if direct_dist_km > 10:
+    if direct_dist_km > 5:
         # Clone a driving route to represent 'Bus' or 'Train' if we have one
         driving_routes = [rt for rt in routes if rt["profile"] == "driving"]
         if driving_routes:
@@ -165,7 +161,7 @@ def safe_route():
                 "duration_min": round(base_rt["duration_min"] * 1.4 + 15, 1), # +15m overhead
                 "full_geometry": base_rt["full_geometry"]
             })
-            if direct_dist_km > 15:
+            if direct_dist_km > 20:
                 # Add 'Train' alternative (faster than car for long distances)
                 routes.append({
                     "profile": "train",
@@ -196,7 +192,7 @@ def safe_route():
     # Now downsample and score routes as before
     for r in routes:
         geom = r["full_geometry"]
-        r["waypoints"] = geom[::max(1, len(geom)//30)] # Downsample for scoring efficiency
+        r["waypoints"] = geom[::max(1, len(geom)//50)] # Downsample for scoring efficiency
 
     # Load risk data for scoring
     zones = UnsafeZone.query.filter_by(is_active=True).all()
@@ -205,7 +201,7 @@ def safe_route():
         CommunityReport.created_at >= since_48h
     ).all()
 
-    def score_route(waypoints):
+    def score_route(waypoints, profile):
         """Compute 0–100 risk score for a route based on proximity to danger."""
         total = 0.0
         for lat, lon in waypoints:
@@ -224,11 +220,22 @@ def safe_route():
                     proximity  = 1 - d / 300
                     pt_score  += sev_weight * proximity * 15  # report contributes up to 15pts
             total += min(100, pt_score)
-        return round(total / max(1, len(waypoints)), 1)
+            
+        base_score = round(total / max(1, len(waypoints)), 1)
+        
+        # Time of day risk factor
+        hour = datetime.utcnow().hour
+        is_night = hour < 6 or hour > 19
+        if is_night and profile == "walking":
+            base_score = min(100, base_score + 25) # high penalty for walking at night
+        elif is_night and profile in ["bus", "train"]:
+            base_score = min(100, base_score + 10) # moderate penalty for transit at night
+            
+        return base_score
 
     scored = []
     for i, r in enumerate(routes):
-        risk = score_route(r["waypoints"])
+        risk = score_route(r["waypoints"], r["profile"])
         
         # PRACTICALITY PENALTY:
         # If a route takes > 3 hours or >> than the direct flight/car time,
