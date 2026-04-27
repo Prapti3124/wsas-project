@@ -146,6 +146,35 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   }
 });
 
+// ── Admin Login Form Handler ──────────────────────────────────────────────────
+document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('adminLoginEmail').value;
+  const password = document.getElementById('adminLoginPassword').value;
+  const errEl = document.getElementById('adminLoginError');
+  errEl.classList.add('d-none');
+
+  try {
+    const res = await api.post('/auth/login', { email, password });
+    if (res.access_token) {
+      if (res.user && res.user.role === 'admin') {
+        // Save tokens and redirect to admin dashboard
+        localStorage.setItem('wsas_token', res.access_token);
+        localStorage.setItem('wsas_refresh', res.refresh_token);
+        localStorage.setItem('wsas_user', JSON.stringify(res.user));
+        window.location.href = 'admin.html';
+      } else {
+        showError(errEl, 'Access denied. This account does not have admin privileges.');
+      }
+    } else {
+      showError(errEl, res.error || 'Invalid admin credentials.');
+    }
+  } catch (err) {
+    showError(errEl, 'Network error. Check your connection.');
+  }
+});
+
+
 document.getElementById('registerForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const errEl = document.getElementById('registerError');

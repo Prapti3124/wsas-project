@@ -107,22 +107,36 @@ def create_app(config_class=Config):
 
 
 def _seed_admin():
-    """Create default admin account if not exists."""
+    """Create owner admin account on every startup if not already present."""
     from models import User
     from extensions import db
     from werkzeug.security import generate_password_hash
-    if not User.query.filter_by(role="admin").first():
-        admin = User(
-            name="Admin",
-            email="admin@wsas.com",
-            password_hash=generate_password_hash("Admin@123"),
-            phone="+910000000000",
-            role="admin",
-            is_active=True
-        )
-        db.session.add(admin)
-        db.session.commit()
-        print("[SEED] Default admin created: admin@wsas.com / Admin@123")
+
+    admin_email = os.getenv("ADMIN_EMAIL", "praptitembhe07@gmail.com")
+    admin_password = os.getenv("ADMIN_PASSWORD", "Prapti@2004")
+    admin_name = os.getenv("ADMIN_NAME", "Prapti")
+
+    existing = User.query.filter_by(email=admin_email).first()
+    if existing:
+        # Ensure the account is always admin, even after accidental role changes
+        if existing.role != "admin":
+            existing.role = "admin"
+            db.session.commit()
+            print(f"[SEED] Admin role restored for {admin_email}")
+        return
+
+    admin = User(
+        name=admin_name,
+        email=admin_email,
+        password_hash=generate_password_hash(admin_password),
+        phone="+919999999999",
+        role="admin",
+        is_active=True,
+        is_email_verified=True
+    )
+    db.session.add(admin)
+    db.session.commit()
+    print(f"[SEED] Admin account created: {admin_email}")
 
 
 if __name__ == "__main__":
