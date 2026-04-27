@@ -270,6 +270,12 @@ def safe_route():
 @jwt_required()
 def start_tracking():
     user_id = int(get_jwt_identity())
+    
+    # Check if user actually exists (prevents stale JWT issues)
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "User account no longer exists. Please re-login."}), 401
+        
     data = request.get_json() or {}
     duration_min = data.get("duration", 60) # Default 1 hour
 
