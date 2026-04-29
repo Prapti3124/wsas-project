@@ -153,3 +153,30 @@ def verify_report(report_id):
     report.verified = True
     db.session.commit()
     return jsonify({"message": "Report verified"}), 200
+
+
+# ─── Recent Alerts (All Users) ────────────────────────────────────────────────
+@admin_bp.route("/alerts", methods=["GET"])
+@admin_required
+def recent_alerts():
+    """Fetch the most recent alerts across all users for admin overview."""
+    page  = request.args.get("page", 1, type=int)
+    limit = min(request.args.get("limit", 20, type=int), 100)
+
+    alerts = Alert.query.order_by(Alert.created_at.desc())\
+                        .paginate(page=page, per_page=limit, error_out=False)
+
+    result = []
+    for a in alerts.items:
+        d = a.to_dict()
+        # Attach user name so admin can see who triggered it
+        user = User.query.get(a.user_id)
+        d["user_name"] = user.name if user else "Unknown"
+        d["user_email"] = user.email if user else ""
+        result.append(d)
+
+    return jsonify({
+        "alerts": result,
+        "total": alerts.total,
+        "pages": alerts.pages
+    }), 200

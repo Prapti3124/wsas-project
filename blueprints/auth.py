@@ -337,12 +337,19 @@ def get_profile():
 def update_profile():
     user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
     data = request.get_json(silent=True) or {}
 
     if "name" in data and len(str(data["name"]).strip()) >= 2:
         user.name = str(data["name"]).strip()
-    if "phone" in data and validate_phone(str(data["phone"])):
-        user.phone = str(data["phone"]).strip()
+    if "phone" in data:
+        ph = str(data["phone"]).strip()
+        if ph and validate_phone(ph):
+            user.phone = ph
+        elif not ph:
+            user.phone = None
     
     if "alternate_phone" in data:
         ap = str(data["alternate_phone"]).strip()
@@ -356,7 +363,14 @@ def update_profile():
         pp = str(data["profile_photo"]).strip()
         user.profile_photo = pp if pp else None
 
-    db.session.commit()
+    try:
+        db.session.commit()
+        logger.info(f"Profile updated for user {user_id}")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to update profile for user {user_id}: {e}")
+        return jsonify({"error": "Failed to save profile. Please try again."}), 500
+
     return jsonify({"message": "Profile updated", "user": user.to_dict()}), 200
 
 

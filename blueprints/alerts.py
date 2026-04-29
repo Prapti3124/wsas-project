@@ -125,16 +125,48 @@ def process_sos_background(app, alert_id, data):
                     if alert.latitude and alert.longitude:
                         lat_str = f"{alert.latitude:.7f}"
                         lon_str = f"{alert.longitude:.7f}"
+                        maps_url = f"https://maps.google.com/?q={lat_str},{lon_str}"
                         accuracy = data.get("accuracy")
-                        acc_str = f" (Accuracy: {round(accuracy)}m)" if accuracy else ""
-                        maps_url = f"https://maps.google.com/?q={lat_str},{lon_str}{acc_str}"
+                        acc_line = f"Accuracy: {round(accuracy)}m\n" if accuracy else ""
+
+                        # Reverse geocode to get human-readable address
+                        readable_addr = ""
+                        try:
+                            import requests as req_lib
+                            geo_resp = req_lib.get(
+                                f"https://nominatim.openstreetmap.org/reverse",
+                                params={"lat": alert.latitude, "lon": alert.longitude, "format": "json"},
+                                headers={"User-Agent": "SAKHI-Safety-App/1.0"},
+                                timeout=5
+                            )
+                            if geo_resp.status_code == 200:
+                                geo_data = geo_resp.json()
+                                addr = geo_data.get("address", {})
+                                parts = []
+                                if addr.get("suburb"): parts.append(addr["suburb"])
+                                if addr.get("city") or addr.get("town") or addr.get("village"):
+                                    parts.append(addr.get("city") or addr.get("town") or addr.get("village"))
+                                if addr.get("state"): parts.append(addr["state"])
+                                if addr.get("country"): parts.append(addr["country"])
+                                readable_addr = ", ".join(parts)
+                        except Exception as geo_err:
+                            logger.warning(f"Reverse geocoding failed: {geo_err}")
+
+                        location_line = f"Location: {maps_url}\n"
+                        if readable_addr:
+                            location_line += f"Address: {readable_addr}\n"
+                        location_line += acc_line
                     else:
-                        maps_url = "⚠️ Location Unavailable (Signal weak or blocked)"
+                        location_line = "Location: \u26a0\ufe0f Unavailable (Signal weak or blocked)\n"
                     
-                    # Exact format requested by user
-                    body = (f"🆘 SOS! {user_name} is in danger!\n"
-                            f"Location: {maps_url}\n"
-                            f"Time: {datetime.utcnow().strftime('%H:%M')} UTC\n"
+                    # IST time (UTC+5:30)
+                    from datetime import timezone, timedelta as td
+                    ist = datetime.utcnow() + td(hours=5, minutes=30)
+                    time_str = ist.strftime('%H:%M IST')
+
+                    body = (f"\U0001f198 SOS! {user_name} is in danger!\n"
+                            f"{location_line}"
+                            f"Time: {time_str}\n"
                             f"Msg: {alert.message}")
                     
                     logger.info(f"Sending SOS SMS to {phone}: {body}")

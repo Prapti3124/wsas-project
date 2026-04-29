@@ -67,9 +67,43 @@ async function loadDashboardStats() {
         document.getElementById('statUnsafeZones').textContent = stats.unsafe_zones;
         
         loadAlertAnalytics();
+        loadRecentAlerts();
     } catch (e) {
         toast("Failed to load dashboard stats", "danger");
     }
+}
+
+async function loadRecentAlerts() {
+    const tbody = document.getElementById('recentAlertsBody');
+    if (!tbody) return;
+    try {
+        const data = await api.get('/admin/alerts?limit=10');
+        if (!data.alerts || data.alerts.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-muted">No alerts yet.</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = data.alerts.map(a => {
+            const time = new Date(a.created_at).toLocaleString('en-IN');
+            const statusClass = a.status === 'active' ? 'danger' : a.status === 'resolved' ? 'success' : 'secondary';
+            const riskClass   = a.risk_score >= 70 ? 'danger' : a.risk_score >= 40 ? 'warning' : 'success';
+            return `<tr>
+                <td><span class="fw-bold">${escHtml(a.user_name)}</span><br><small class="text-muted">${escHtml(a.user_email)}</small></td>
+                <td><span class="badge bg-secondary">${a.alert_type}</span></td>
+                <td><small>${escHtml(a.message || '-')}</small></td>
+                <td><span class="badge bg-${riskClass}">${Math.round(a.risk_score)}</span></td>
+                <td><span class="badge bg-${statusClass}">${a.status}</span></td>
+                <td><small class="text-muted">${time}</small></td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-muted">Could not load alerts.</td></tr>`;
+        console.error('Failed to load recent alerts:', e);
+    }
+}
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 async function loadAlertAnalytics() {

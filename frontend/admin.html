@@ -144,6 +144,27 @@
               <h5 class="fw-bold mb-3"><i class="fas fa-chart-area text-pink me-2"></i>Alerts (Past 30 Days)</h5>
               <canvas id="alertsChart" height="150"></canvas>
             </div>
+
+            <div class="wsas-card p-4 rounded-3">
+              <h5 class="fw-bold mb-3"><i class="fas fa-bell text-danger me-2"></i>Recent SOS Alerts</h5>
+              <div class="table-responsive">
+                <table class="table table-dark-custom">
+                  <thead>
+                    <tr>
+                      <th>User ID</th>
+                      <th>Type</th>
+                      <th>Message</th>
+                      <th>Risk Score</th>
+                      <th>Status</th>
+                      <th>Time</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentAlertsBody">
+                    <tr><td colspan="6" class="text-center py-3 text-muted">Loading...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
           <!-- 2. USERS -->
@@ -257,10 +278,11 @@
       document.getElementById('currentTime').textContent = now.toLocaleString('en-US', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit', second:'2-digit' });
     }, 1000);
 
-    // Essential Auth checking
-    let accessToken = localStorage.getItem('wsas_token');
-    let refreshToken = localStorage.getItem('wsas_refresh');
-    let userData = null;
+    // IMPORTANT: Use var (not let) so accessToken/refreshToken are global-scoped
+    // and visible to api.js which reads them as bare globals.
+    var accessToken = localStorage.getItem('wsas_token');
+    var refreshToken = localStorage.getItem('wsas_refresh');
+    var userData = null;
     try {
       if(localStorage.getItem('wsas_user')) {
         userData = JSON.parse(localStorage.getItem('wsas_user'));
