@@ -225,6 +225,14 @@ textarea::placeholder {
 .dashboard-section {
   height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-section > .d-flex {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -235,7 +243,7 @@ textarea::placeholder {
   border-right: 1px solid rgba(233, 30, 140, 0.15);
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   overflow-y: auto;
   position: sticky;
   top: 0;
@@ -283,7 +291,7 @@ textarea::placeholder {
 }
 
 .main-content {
-  height: 100vh;
+  height: 100%;
   overflow-y: auto;
   background: transparent;
   display: flex;
