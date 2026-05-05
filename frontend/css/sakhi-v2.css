@@ -222,11 +222,10 @@ textarea::placeholder {
 }
 
 /* ── DASHBOARD LAYOUT ─────────────────────────────────────────────────────── */
-/* ── DASHBOARD LAYOUT ─────────────────────────────────────────────────────── */
 
 /* Make html/body fill the full viewport without creating a global scrollbar */
 html, body {
-  height: 100%;
+  /* height:100% removed - use h-100 class where needed */
 }
 
 .dashboard-section {
@@ -306,15 +305,15 @@ html, body {
 /* ── MAIN CONTENT ─────────────────────────────────────────────────────────── */
 .main-content {
   flex: 1 1 0;
-  min-width: 0;    /* prevent flex overflow */
-  height: 100%;    /* fill bounded flex parent */
+  min-width: 0;      /* prevent flex overflow */
+  height: 100%;      /* fill bounded flex parent */
   overflow-y: auto;
   overflow-x: hidden;
+  overflow-anchor: none; /* stop browser snapping scroll position back to top */
   background: transparent;
-  display: flex;
-  flex-direction: column;
-  /* Prevent browser scroll-anchoring from snapping position back to top */
-  overflow-anchor: none;
+  /* display: block (default) — DO NOT use flex here.
+     flex-direction:column with flex-shrink:1 children causes the container-fluid
+     to COMPRESS to fit instead of overflow, breaking scroll entirely. */
 }
 
 /* ── TOPBAR ───────────────────────────────────────────────────────────────── */
