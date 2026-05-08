@@ -106,14 +106,15 @@ def register():
     password = str(data.get("password", ""))
     phone    = str(data.get("phone", "")).strip()
 
+    # ── Input Validation ──────────────────────────────────────────────────────
     errors = {}
     if not name or len(name) < 2:
         errors["name"] = "Name must be at least 2 characters"
     if not validate_email(email):
         errors["email"] = "Invalid email address"
     if not validate_password(password):
-        errors["password"] = "Password: 8+ chars, uppercase, digit, special"
-    
+        errors["password"] = "Password must be 8+ chars with uppercase, digit & special character"
+
     if errors:
         return jsonify({"error": "Validation failed", "details": errors}), 422
 
@@ -123,41 +124,40 @@ def register():
         if user.is_email_verified:
             logger.warning(f"Registration attempt for already verified email: {email}")
             return jsonify({"error": "Email already registered and verified"}), 409
-        
-        # Update existing unverified account with new registration data
-        logger.info(f"Completing registration for existing unverified account: {email}")
+
+        # Update existing unverified account with fresh registration data
+        logger.info(f"Re-registering existing unverified account: {email}")
         user.name = name
         user.phone = phone
         user.set_password(password)
     else:
-        # Create a fresh user record
-        logger.info(f"Creating new user registration: {email}")
-        user = User(name=name, email=email, phone=phone)
+        # Create a brand-new user record (unverified)
+        logger.info(f"Creating new user account (awaiting OTP): {email}")
+        user = User(name=name, email=email, phone=phone, is_email_verified=False, is_active=False)
         user.set_password(password)
         db.session.add(user)
 
-    # Finalize registration
-    user.is_email_verified = True
-    user.is_active = True
-    user.last_login = datetime.utcnow()
-    
+    # ── Generate & Send OTP ───────────────────────────────────────────────────
+    otp = f"{random.randint(100000, 999999)}"
+    user.otp_code   = otp
+    user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+
     try:
         db.session.commit()
-        logger.info(f"User registration successfully persisted: {email} (ID: {user.id})")
+        logger.info(f"OTP generated for {email} (ID: {user.id})")
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Database commit failed during registration for {email}: {e}")
-        return jsonify({"error": "Internal server error during registration"}), 500
+        logger.error(f"DB commit failed during register OTP for {email}: {e}")
+        return jsonify({"error": "Internal server error. Please try again."}), 500
 
-    access_token = create_access_token(identity=str(user.id), additional_claims={"role": user.role})
-    refresh_token = create_refresh_token(identity=str(user.id))
-
-    return jsonify({
-        "message": "Registration successful",
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "user": user.to_dict()
-    }), 200
+    if send_otp_email(email, otp):
+        return jsonify({
+            "message": "Verification code sent to your email",
+            "email": email,
+            "needs_verification": True
+        }), 200
+    else:
+        return jsonify({"error": "Could not send verification email. Try again."}), 500
 
 
 # ─── Google Login/Register ────────────────────────────────────────────────────
@@ -227,7 +227,7 @@ def google_login():
 def verify_otp():
     data = request.get_json(silent=True) or {}
     email = data.get("email", "").strip().lower()
-    code = data.get("otp", "").strip()
+    code  = str(data.get("otp", "")).strip()
 
     if not email or not code:
         return jsonify({"error": "Email and OTP required"}), 400
@@ -236,28 +236,72 @@ def verify_otp():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
+    # ── Expiry check first ────────────────────────────────────────────────────
+    if not user.otp_expiry or user.otp_expiry < datetime.utcnow():
+        return jsonify({"error": "OTP has expired. Please request a new code.", "expired": True}), 400
+
+    # ── Code match check ─────────────────────────────────────────────────────
     if user.otp_code != code:
-        return jsonify({"error": "Invalid OTP code"}), 400
+        return jsonify({"error": "Invalid OTP. Please check the code and try again."}), 400
 
-    if user.otp_expiry < datetime.utcnow():
-        return jsonify({"error": "OTP expired"}), 400
-
-    # Success
+    # ── Success: activate account ─────────────────────────────────────────────
     user.is_email_verified = True
-    user.otp_code = None
-    user.otp_expiry = None
-    user.last_login = datetime.utcnow()
+    user.is_active         = True
+    user.otp_code          = None
+    user.otp_expiry        = None
+    user.last_login        = datetime.utcnow()
     db.session.commit()
+    logger.info(f"User {email} verified and activated.")
 
-    access_token = create_access_token(identity=str(user.id), additional_claims={"role": user.role})
+    access_token  = create_access_token(identity=str(user.id), additional_claims={"role": user.role})
     refresh_token = create_refresh_token(identity=str(user.id))
 
     return jsonify({
-        "message": "Email verified and logged in",
+        "message": "Email verified! Welcome to SAKHI.",
         "access_token": access_token,
         "refresh_token": refresh_token,
         "user": user.to_dict()
     }), 200
+
+
+# ─── Resend OTP ───────────────────────────────────────────────────────────────
+@auth_bp.route("/resend-otp", methods=["POST"])
+def resend_otp():
+    """Regenerate and resend OTP for an unverified account."""
+    data  = request.get_json(silent=True) or {}
+    email = str(data.get("email", "")).strip().lower()
+
+    if not email:
+        return jsonify({"error": "Email required"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"error": "No account found with this email"}), 404
+
+    if user.is_email_verified:
+        return jsonify({"error": "Account is already verified. Please login."}), 409
+
+    # Rate-limit: don't resend if previous OTP was issued within the last 60 seconds
+    if user.otp_expiry and user.otp_expiry > datetime.utcnow() + timedelta(minutes=9):
+        return jsonify({"error": "Please wait before requesting another code."}), 429
+
+    # Generate fresh OTP
+    otp = f"{random.randint(100000, 999999)}"
+    user.otp_code   = otp
+    user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to save resent OTP for {email}: {e}")
+        return jsonify({"error": "Internal error. Try again."}), 500
+
+    if send_otp_email(email, otp):
+        logger.info(f"OTP resent to {email}")
+        return jsonify({"message": "New verification code sent!"}), 200
+    else:
+        return jsonify({"error": "Failed to send email. Try again."}), 500
 
 
 # ─── Login ───────────────────────────────────────────────────────────────────

@@ -198,9 +198,27 @@
             </div>
             <div class="col-12">
               <label class="form-label fw-semibold">Password</label>
-              <input type="password" id="regPassword" class="form-control"
-                placeholder="Min 8 chars, uppercase, digit, special" required />
-              <div class="password-strength mt-1" id="pwStrength"></div>
+              <div class="input-group">
+                <input type="password" id="regPassword" class="form-control"
+                  placeholder="Min 8 chars, uppercase, digit, special" required />
+                <button class="btn btn-outline-secondary" type="button" onclick="togglePw('regPassword')">
+                  <i class="fas fa-eye"></i>
+                </button>
+              </div>
+              <!-- Live strength meter -->
+              <div class="pw-strength-wrap mt-2" id="pwStrengthWrap">
+                <div class="pw-strength-bar-bg">
+                  <div class="pw-strength-bar" id="pwStrengthBar"></div>
+                </div>
+                <span class="pw-strength-label" id="pwStrengthLabel"></span>
+              </div>
+              <!-- Requirement checklist -->
+              <ul class="pw-req-list mt-1" id="pwReqList">
+                <li id="req-len"><i class="fas fa-times-circle me-1"></i>At least 8 characters</li>
+                <li id="req-upper"><i class="fas fa-times-circle me-1"></i>One uppercase letter</li>
+                <li id="req-digit"><i class="fas fa-times-circle me-1"></i>One number (0-9)</li>
+                <li id="req-special"><i class="fas fa-times-circle me-1"></i>One special character</li>
+              </ul>
             </div>
           </div>
           <div id="registerError" class="alert alert-danger d-none mt-3" style="color: #842029 !important; font-weight: bold;"></div>
@@ -225,6 +243,17 @@
           <h2 class="fw-bold">Verify Your Email</h2>
           <p class="opacity-75">We've sent a 6-digit code to <br><strong id="otpEmailDisplay">...</strong></p>
         </div>
+        <!-- Countdown Timer -->
+        <div class="d-flex justify-content-center mb-2">
+          <div id="otpTimer" class="otp-timer-badge">
+            <i class="fas fa-clock me-1"></i>Code expires in <span id="otpTimerDisplay">10:00</span>
+          </div>
+        </div>
+        <!-- Expired Warning -->
+        <div id="otpExpiredMsg" class="alert alert-warning d-none mx-4 py-2 small">
+          <i class="fas fa-exclamation-triangle me-1"></i>
+          Your code has expired. Click <strong>Resend Code</strong> to get a new one.
+        </div>
         <form id="otpForm" class="p-4">
           <div class="mb-4">
             <div class="d-flex justify-content-center gap-2" id="otpInputContainer">
@@ -238,11 +267,12 @@
             <input type="hidden" id="otpFullValue">
           </div>
           <div id="otpError" class="alert alert-danger d-none"></div>
-          <button type="submit" class="btn btn-pink w-100 btn-lg mb-3">
-            Verify & Create Account
+          <button type="submit" id="otpSubmitBtn" class="btn btn-pink w-100 btn-lg mb-3">
+            <i class="fas fa-check-circle me-2"></i>Verify &amp; Create Account
           </button>
-          <p class="text-center small">Didn't receive the code? 
-            <a href="#" class="text-pink fw-bold" onclick="resendOTP()">Resend Code</a>
+          <p class="text-center small">Didn't receive the code?
+            <a href="#" class="text-pink fw-bold" id="resendOtpLink" onclick="resendOTP()">Resend Code</a>
+            <span id="resendCooldown" class="text-muted small d-none">(wait <span id="resendCountdown">60</span>s)</span>
           </p>
           <a href="#" class="text-muted small" onclick="showSection('login')">Back to Login</a>
         </form>
@@ -956,16 +986,30 @@
           <form id="changePasswordForm">
             <div class="mb-3">
               <label class="form-label text-muted small">Current Password</label>
-              <input type="password" class="form-control" id="oldPassword" required>
+              <div class="input-group">
+                <input type="password" class="form-control" id="oldPassword" required>
+                <button class="btn btn-outline-secondary" type="button" onclick="togglePw('oldPassword')"><i class="fas fa-eye"></i></button>
+              </div>
             </div>
             <div class="mb-3">
               <label class="form-label text-muted small">New Password</label>
-              <input type="password" class="form-control" id="newPassword" required>
-              <div class="form-text text-muted" style="font-size: 0.75rem;">Requires 8+ chars, uppercase, digit, and special char.</div>
+              <div class="input-group">
+                <input type="password" class="form-control" id="newPassword" required>
+                <button class="btn btn-outline-secondary" type="button" onclick="togglePw('newPassword')"><i class="fas fa-eye"></i></button>
+              </div>
+              <div class="pw-strength-wrap mt-2">
+                <div class="pw-strength-bar-bg"><div class="pw-strength-bar" id="chgPwStrengthBar"></div></div>
+                <span class="pw-strength-label" id="chgPwStrengthLabel"></span>
+              </div>
+              <div class="form-text text-muted" style="font-size: 0.75rem;">8+ chars, uppercase, digit, special char.</div>
             </div>
             <div class="mb-4">
               <label class="form-label text-muted small">Confirm New Password</label>
-              <input type="password" class="form-control" id="confirmNewPassword" required>
+              <div class="input-group">
+                <input type="password" class="form-control" id="confirmNewPassword" required>
+                <button class="btn btn-outline-secondary" type="button" onclick="togglePw('confirmNewPassword')"><i class="fas fa-eye"></i></button>
+              </div>
+              <div id="pwMatchMsg" class="form-text mt-1 d-none"></div>
             </div>
             <div id="changePasswordStatus" class="mb-3"></div>
             <button type="submit" class="btn btn-pink w-100 fw-bold">Update Password</button>

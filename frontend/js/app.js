@@ -180,18 +180,19 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   const errEl = document.getElementById('registerError');
   errEl.classList.add('d-none');
   const body = {
-    name: document.getElementById('regName').value,
-    email: document.getElementById('regEmail').value,
+    name:     document.getElementById('regName').value,
+    email:    document.getElementById('regEmail').value,
     password: document.getElementById('regPassword').value,
-    phone: document.getElementById('regPhone').value,
+    phone:    document.getElementById('regPhone').value,
   };
   try {
     const res = await api.post('/auth/register', body);
-    if (res.access_token) {
-      handleAuthSuccess(res);
-    } else if (res.email) {
+    if (res.needs_verification || res.email) {
       startOTPFlow(res.email);
-      toast('OTP sent to your email!', 'info');
+      toast('Verification code sent to your email!', 'info');
+    } else if (res.access_token) {
+      // Fallback: already-verified path (e.g. admin override)
+      handleAuthSuccess(res);
     } else {
       if (res.details) {
         showError(errEl, Object.values(res.details).join(' • '));
@@ -200,7 +201,87 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       }
     }
   } catch (err) {
-    showError(errEl, 'Registration failed.');
+    showError(errEl, 'Registration failed. Please try again.');
+  }
+});
+
+/* ────────────────── PASSWORD STRENGTH METER ────────────────────────────── */
+function getPasswordStrength(pw) {
+  let score = 0;
+  const checks = {
+    len:     pw.length >= 8,
+    upper:   /[A-Z]/.test(pw),
+    digit:   /\d/.test(pw),
+    special: /[!@#$%^&*(),.?":{}|<>]/.test(pw),
+    long:    pw.length >= 12
+  };
+  score = Object.values(checks).filter(Boolean).length;
+  return { score, checks };
+}
+
+function applyStrengthMeter(pw, barId, labelId) {
+  const bar   = document.getElementById(barId);
+  const label = document.getElementById(labelId);
+  if (!bar || !label) return;
+
+  const { score } = getPasswordStrength(pw);
+  const levels = [
+    { pct: '0%',   color: 'transparent', text: '' },
+    { pct: '25%',  color: '#ef5350',     text: 'Weak' },
+    { pct: '50%',  color: '#ffa726',     text: 'Fair' },
+    { pct: '75%',  color: '#29b6f6',     text: 'Good' },
+    { pct: '90%',  color: '#26a69a',     text: 'Strong' },
+    { pct: '100%', color: '#00e676',     text: 'Very Strong' }
+  ];
+  const lvl = levels[Math.min(score, 5)];
+  bar.style.width = lvl.pct;
+  bar.style.background = lvl.color;
+  label.textContent = lvl.text;
+  label.style.color  = lvl.color;
+}
+
+function updateRegisterRequirements(pw) {
+  const { checks } = getPasswordStrength(pw);
+  const set = (id, ok) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = ok ? 'pw-req-ok' : '';
+    el.querySelector('i').className = ok
+      ? 'fas fa-check-circle me-1'
+      : 'fas fa-times-circle me-1';
+  };
+  set('req-len',     checks.len);
+  set('req-upper',   checks.upper);
+  set('req-digit',   checks.digit);
+  set('req-special', checks.special);
+}
+
+// Wire up register password field
+document.getElementById('regPassword')?.addEventListener('input', (e) => {
+  const pw = e.target.value;
+  applyStrengthMeter(pw, 'pwStrengthBar', 'pwStrengthLabel');
+  updateRegisterRequirements(pw);
+});
+
+// Wire up change-password modal new-password field
+document.getElementById('newPassword')?.addEventListener('input', (e) => {
+  applyStrengthMeter(e.target.value, 'chgPwStrengthBar', 'chgPwStrengthLabel');
+});
+
+// Live password match check on confirm field
+document.getElementById('confirmNewPassword')?.addEventListener('input', (e) => {
+  const matchMsg = document.getElementById('pwMatchMsg');
+  if (!matchMsg) return;
+  const newPw = document.getElementById('newPassword')?.value || '';
+  const confirmPw = e.target.value;
+  if (!confirmPw) { matchMsg.classList.add('d-none'); return; }
+  matchMsg.classList.remove('d-none');
+  if (newPw === confirmPw) {
+    matchMsg.textContent = '✓ Passwords match';
+    matchMsg.style.color = '#00e676';
+  } else {
+    matchMsg.textContent = '✗ Passwords do not match';
+    matchMsg.style.color = '#ef5350';
   }
 });
 
@@ -222,18 +303,70 @@ async function handleGoogleResponse(response) {
 }
 
 /* ────────────────── OTP FLOW ───────────────────────────────────────────── */
+let otpCountdownInterval = null;
+
 function startOTPFlow(email) {
   otpEmail = email;
   document.getElementById('otpEmailDisplay').textContent = email;
   showSection('otp-verify');
-  
-  // Clear previous values
-  document.querySelectorAll('.otp-dot').forEach(input => input.value = '');
+
+  // Clear previous OTP values
+  document.querySelectorAll('.otp-dot').forEach(input => {
+    input.value = '';
+    input.disabled = false;
+  });
+  document.getElementById('otpError')?.classList.add('d-none');
+  document.getElementById('otpExpiredMsg')?.classList.add('d-none');
+  document.getElementById('otpSubmitBtn')?.removeAttribute('disabled');
+
+  // Focus first digit
+  setTimeout(() => document.querySelectorAll('.otp-dot')[0]?.focus(), 300);
+
+  // Start 10-minute countdown
+  startOTPCountdown(10 * 60);
 }
 
-// Auto-focus next OTP input
+function startOTPCountdown(seconds) {
+  // Clear any previous timer
+  if (otpCountdownInterval) clearInterval(otpCountdownInterval);
+
+  const timerEl   = document.getElementById('otpTimer');
+  const displayEl = document.getElementById('otpTimerDisplay');
+  const expiredEl = document.getElementById('otpExpiredMsg');
+  const submitBtn = document.getElementById('otpSubmitBtn');
+
+  if (timerEl) timerEl.classList.remove('otp-timer-expired');
+
+  let remaining = seconds;
+
+  const tick = () => {
+    const mins = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const secs = String(remaining % 60).padStart(2, '0');
+    if (displayEl) displayEl.textContent = `${mins}:${secs}`;
+
+    if (remaining <= 0) {
+      clearInterval(otpCountdownInterval);
+      // Mark expired UI
+      if (timerEl) timerEl.classList.add('otp-timer-expired');
+      if (displayEl) displayEl.textContent = '00:00';
+      if (expiredEl) expiredEl.classList.remove('d-none');
+      if (submitBtn) submitBtn.disabled = true;
+      // Disable OTP inputs
+      document.querySelectorAll('.otp-dot').forEach(i => i.disabled = true);
+      return;
+    }
+    remaining--;
+  };
+
+  tick(); // run immediately
+  otpCountdownInterval = setInterval(tick, 1000);
+}
+
+// Auto-focus next OTP input + numeric-only enforcement
 document.querySelectorAll('.otp-dot').forEach((input, index, inputs) => {
   input.addEventListener('input', () => {
+    // Keep only last digit; filter non-numeric
+    input.value = input.value.replace(/\D/g, '').slice(-1);
     if (input.value && index < inputs.length - 1) {
       inputs[index + 1].focus();
     }
@@ -243,12 +376,19 @@ document.querySelectorAll('.otp-dot').forEach((input, index, inputs) => {
       inputs[index - 1].focus();
     }
   });
+  // Allow paste of full OTP into first box
+  input.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+    [...inputs].forEach((inp, i) => { inp.value = pasted[i] || ''; });
+    inputs[Math.min(pasted.length, inputs.length) - 1]?.focus();
+  });
 });
 
 document.getElementById('otpForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const dots = document.querySelectorAll('.otp-dot');
-  const otp = Array.from(dots).map(d => d.value).join('');
+  const dots  = document.querySelectorAll('.otp-dot');
+  const otp   = Array.from(dots).map(d => d.value).join('');
   const errEl = document.getElementById('otpError');
   errEl.classList.add('d-none');
 
@@ -257,24 +397,65 @@ document.getElementById('otpForm').addEventListener('submit', async (e) => {
   try {
     const res = await api.post('/auth/verify-otp', { email: otpEmail, otp });
     if (res.access_token) {
+      if (otpCountdownInterval) clearInterval(otpCountdownInterval);
       handleAuthSuccess(res);
-      toast('Verification successful!', 'success');
+      toast('✅ Email verified! Welcome to SAKHI.', 'success');
     } else {
+      // Handle OTP expiry flag from backend
+      if (res.expired) {
+        document.getElementById('otpExpiredMsg')?.classList.remove('d-none');
+        document.getElementById('otpSubmitBtn').disabled = true;
+        document.querySelectorAll('.otp-dot').forEach(i => i.disabled = true);
+      }
       showError(errEl, res.error || 'Verification failed');
     }
   } catch (err) {
-    showError(errEl, 'Error verifying OTP');
+    showError(errEl, 'Error verifying OTP. Please try again.');
   }
 });
 
 async function resendOTP() {
   if (!otpEmail) return;
+
+  const link      = document.getElementById('resendOtpLink');
+  const coolEl    = document.getElementById('resendCooldown');
+  const countEl   = document.getElementById('resendCountdown');
+  const expiredEl = document.getElementById('otpExpiredMsg');
+  const errEl     = document.getElementById('otpError');
+
+  // Apply 60-second cooldown on the resend link
+  if (link) link.style.pointerEvents = 'none';
+  if (coolEl) coolEl.classList.remove('d-none');
+
+  let cd = 60;
+  if (countEl) countEl.textContent = cd;
+  const cdInterval = setInterval(() => {
+    cd--;
+    if (countEl) countEl.textContent = cd;
+    if (cd <= 0) {
+      clearInterval(cdInterval);
+      if (link) link.style.pointerEvents = '';
+      if (coolEl) coolEl.classList.add('d-none');
+    }
+  }, 1000);
+
   try {
-    toast('Resending code...', 'info');
-    await api.post('/auth/register', { email: otpEmail, resend: true });
-    toast('New code sent!', 'success');
-  } catch (e) {
-    toast('Failed to resend code.', 'danger');
+    toast('Sending new code...', 'info');
+    const res = await api.post('/auth/resend-otp', { email: otpEmail });
+    if (res.message) {
+      toast('✉️ New code sent! Check your inbox.', 'success');
+      // Re-enable form and restart timer
+      if (expiredEl) expiredEl.classList.add('d-none');
+      if (errEl) errEl.classList.add('d-none');
+      document.getElementById('otpSubmitBtn')?.removeAttribute('disabled');
+      document.querySelectorAll('.otp-dot').forEach(i => { i.disabled = false; i.value = ''; });
+      document.querySelectorAll('.otp-dot')[0]?.focus();
+      startOTPCountdown(10 * 60);
+    } else {
+      toast(res.error || 'Failed to resend code.', 'danger');
+    }
+  } catch (err) {
+    toast('Failed to resend. Please try again.', 'danger');
   }
 }
 
