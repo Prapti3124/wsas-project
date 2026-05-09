@@ -7,11 +7,7 @@ Security: bcrypt passwords, JWT tokens, input validation
 import re
 import logging
 import random
-import smtplib
-import ssl
 import requests
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import (
@@ -39,59 +35,7 @@ def validate_password(password):
             re.search(r"\d", password) and
             re.search(r"[!@#$%^&*(),.?\":{}|<>]", password))
 
-def send_otp_email(receiver_email, otp_code):
-    """Send OTP via SMTP."""
-    try:
-        smtp_server = current_app.config["MAIL_SERVER"]
-        smtp_port = current_app.config["MAIL_PORT"]
-        sender_email = current_app.config["MAIL_USERNAME"]
-        password = current_app.config["MAIL_PASSWORD"]
-        sender_display = current_app.config.get("MAIL_DEFAULT_SENDER", sender_email)
 
-        # Developer mode fallback if credentials are not configured
-        if not sender_email or "your_email" in sender_email or not password or "password" in password.lower():
-            logger.warning(f"SMTP credentials not configured. Catching OTP in DEV MODE for {receiver_email}")
-            print("\n" + "="*50)
-            print(f"✅ DEV MODE OTP: {otp_code} (For: {receiver_email})")
-            print("="*50 + "\n")
-            return True
-
-        message = MIMEMultipart("alternative")
-        message["Subject"] = f"{otp_code} is your WSAS verification code"
-        message["From"] = sender_display
-        message["To"] = receiver_email
-
-        text = f"Your WSAS verification code is: {otp_code}. It expires in 10 minutes."
-        html = f"""
-        <html>
-        <body>
-            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px;">
-                <h2 style="color: #db2777;">WSAS Verification</h2>
-                <p>Hello,</p>
-                <p>Your one-time password (OTP) for registration is:</p>
-                <div style="font-size: 32px; font-weight: bold; color: #db2777; margin: 20px 0;">{otp_code}</div>
-                <p style="color: #666; font-size: 14px;">This code will expire in 10 minutes. If you didn't request this, please ignore this email.</p>
-                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="font-size: 12px; color: #999;">Women Safety Alert System (WSAS)</p>
-            </div>
-        </body>
-        </html>
-        """
-        message.attach(MIMEText(text, "plain"))
-        message.attach(MIMEText(html, "html"))
-
-        context = ssl.create_default_context()
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            if current_app.config.get("MAIL_USE_TLS", True):
-                server.starttls(context=context)
-            server.login(sender_email, password)
-            server.sendmail(sender_email, receiver_email, message.as_string())
-        
-        logger.info(f"OTP sent to {receiver_email}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to send email: {e}")
-        return False
 
 
 # ─── Register ─────────────────────────────────────────────────────────────────
@@ -129,35 +73,33 @@ def register():
         logger.info(f"Re-registering existing unverified account: {email}")
         user.name = name
         user.phone = phone
+        user.is_email_verified = True
+        user.is_active = True
         user.set_password(password)
     else:
-        # Create a brand-new user record (unverified)
-        logger.info(f"Creating new user account (awaiting OTP): {email}")
-        user = User(name=name, email=email, phone=phone, is_email_verified=False, is_active=False)
+        # Create a brand-new user record
+        logger.info(f"Creating new user account: {email}")
+        user = User(name=name, email=email, phone=phone, is_email_verified=True, is_active=True)
         user.set_password(password)
         db.session.add(user)
 
-    # ── Generate & Send OTP ───────────────────────────────────────────────────
-    otp = f"{random.randint(100000, 999999)}"
-    user.otp_code   = otp
-    user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
-
     try:
         db.session.commit()
-        logger.info(f"OTP generated for {email} (ID: {user.id})")
+        logger.info(f"User registered successfully: {email} (ID: {user.id})")
     except Exception as e:
         db.session.rollback()
-        logger.error(f"DB commit failed during register OTP for {email}: {e}")
+        logger.error(f"DB commit failed during register for {email}: {e}")
         return jsonify({"error": "Internal server error. Please try again."}), 500
 
-    if send_otp_email(email, otp):
-        return jsonify({
-            "message": "Verification code sent to your email",
-            "email": email,
-            "needs_verification": True
-        }), 200
-    else:
-        return jsonify({"error": "Could not send verification email. Try again."}), 500
+    access_token  = create_access_token(identity=str(user.id), additional_claims={"role": user.role})
+    refresh_token = create_refresh_token(identity=str(user.id))
+
+    return jsonify({
+        "message": "Registration successful",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "user": user.to_dict()
+    }), 200
 
 
 # ─── Google Login/Register ────────────────────────────────────────────────────
@@ -188,20 +130,10 @@ def google_login():
         if not user:
             # Create new user via Google
             user = User(name=name, email=email, google_id=google_id, profile_photo=picture)
-            user.is_email_verified = False # Still needs OTP for first time registration
+            user.is_email_verified = True
+            user.is_active = True
             db.session.add(user)
             db.session.commit()
-
-        if not user.is_email_verified:
-            # Send OTP for registration completion
-            otp = f"{random.randint(100000, 999999)}"
-            user.otp_code = otp
-            user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
-            db.session.commit()
-            if send_otp_email(email, otp):
-                return jsonify({"message": "Verification required", "email": email, "new_user": True}), 200
-            else:
-                return jsonify({"error": "Could not send OTP"}), 500
 
         # Existing verified user - Login directly
         user.last_login = datetime.utcnow()
@@ -222,86 +154,7 @@ def google_login():
         return jsonify({"error": "Authentication failed"}), 500
 
 
-# ─── Verify OTP ──────────────────────────────────────────────────────────────
-@auth_bp.route("/verify-otp", methods=["POST"])
-def verify_otp():
-    data = request.get_json(silent=True) or {}
-    email = data.get("email", "").strip().lower()
-    code  = str(data.get("otp", "")).strip()
 
-    if not email or not code:
-        return jsonify({"error": "Email and OTP required"}), 400
-
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-
-    # ── Expiry check first ────────────────────────────────────────────────────
-    if not user.otp_expiry or user.otp_expiry < datetime.utcnow():
-        return jsonify({"error": "OTP has expired. Please request a new code.", "expired": True}), 400
-
-    # ── Code match check ─────────────────────────────────────────────────────
-    if user.otp_code != code:
-        return jsonify({"error": "Invalid OTP. Please check the code and try again."}), 400
-
-    # ── Success: activate account ─────────────────────────────────────────────
-    user.is_email_verified = True
-    user.is_active         = True
-    user.otp_code          = None
-    user.otp_expiry        = None
-    user.last_login        = datetime.utcnow()
-    db.session.commit()
-    logger.info(f"User {email} verified and activated.")
-
-    access_token  = create_access_token(identity=str(user.id), additional_claims={"role": user.role})
-    refresh_token = create_refresh_token(identity=str(user.id))
-
-    return jsonify({
-        "message": "Email verified! Welcome to SAKHI.",
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "user": user.to_dict()
-    }), 200
-
-
-# ─── Resend OTP ───────────────────────────────────────────────────────────────
-@auth_bp.route("/resend-otp", methods=["POST"])
-def resend_otp():
-    """Regenerate and resend OTP for an unverified account."""
-    data  = request.get_json(silent=True) or {}
-    email = str(data.get("email", "")).strip().lower()
-
-    if not email:
-        return jsonify({"error": "Email required"}), 400
-
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return jsonify({"error": "No account found with this email"}), 404
-
-    if user.is_email_verified:
-        return jsonify({"error": "Account is already verified. Please login."}), 409
-
-    # Rate-limit: don't resend if previous OTP was issued within the last 60 seconds
-    if user.otp_expiry and user.otp_expiry > datetime.utcnow() + timedelta(minutes=9):
-        return jsonify({"error": "Please wait before requesting another code."}), 429
-
-    # Generate fresh OTP
-    otp = f"{random.randint(100000, 999999)}"
-    user.otp_code   = otp
-    user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
-
-    try:
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Failed to save resent OTP for {email}: {e}")
-        return jsonify({"error": "Internal error. Try again."}), 500
-
-    if send_otp_email(email, otp):
-        logger.info(f"OTP resent to {email}")
-        return jsonify({"message": "New verification code sent!"}), 200
-    else:
-        return jsonify({"error": "Failed to send email. Try again."}), 500
 
 
 # ─── Login ───────────────────────────────────────────────────────────────────
@@ -325,14 +178,7 @@ def login():
     if not user.is_active:
         return jsonify({"error": "Account deactivated. Contact admin."}), 403
 
-    if not user.is_email_verified:
-        # Re-send OTP if not verified
-        otp = f"{random.randint(100000, 999999)}"
-        user.otp_code = otp
-        user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
-        db.session.commit()
-        send_otp_email(email, otp)
-        return jsonify({"error": "Email not verified. OTP sent again.", "email": email, "needs_verification": True}), 401
+
 
     # Update last login
     user.last_login = datetime.utcnow()

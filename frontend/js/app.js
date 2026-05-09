@@ -123,7 +123,6 @@ function showSection(name) {
 }
 
 /* ────────────────── AUTH ────────────────────────────────────────────────── */
-let otpEmail = '';
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -136,8 +135,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     const res = await api.post('/auth/login', { email, password });
     if (res.access_token) {
       handleAuthSuccess(res);
-    } else if (res.needs_verification) {
-      startOTPFlow(res.email);
     } else {
       showError(errEl, res.error || 'Login failed');
     }
@@ -187,11 +184,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   };
   try {
     const res = await api.post('/auth/register', body);
-    if (res.needs_verification || res.email) {
-      startOTPFlow(res.email);
-      toast('Verification code sent to your email!', 'info');
-    } else if (res.access_token) {
-      // Fallback: already-verified path (e.g. admin override)
+    if (res.access_token) {
       handleAuthSuccess(res);
     } else {
       if (res.details) {
@@ -291,9 +284,6 @@ async function handleGoogleResponse(response) {
     const res = await api.post('/auth/google-login', { credential: response.credential });
     if (res.access_token) {
       handleAuthSuccess(res);
-    } else if (res.email) {
-      startOTPFlow(res.email);
-      toast('Verification code sent to your Google email.', 'info');
     } else {
       toast(res.error || 'Google login failed', 'danger');
     }
@@ -302,162 +292,7 @@ async function handleGoogleResponse(response) {
   }
 }
 
-/* ────────────────── OTP FLOW ───────────────────────────────────────────── */
-let otpCountdownInterval = null;
 
-function startOTPFlow(email) {
-  otpEmail = email;
-  document.getElementById('otpEmailDisplay').textContent = email;
-  showSection('otp-verify');
-
-  // Clear previous OTP values
-  document.querySelectorAll('.otp-dot').forEach(input => {
-    input.value = '';
-    input.disabled = false;
-  });
-  document.getElementById('otpError')?.classList.add('d-none');
-  document.getElementById('otpExpiredMsg')?.classList.add('d-none');
-  document.getElementById('otpSubmitBtn')?.removeAttribute('disabled');
-
-  // Focus first digit
-  setTimeout(() => document.querySelectorAll('.otp-dot')[0]?.focus(), 300);
-
-  // Start 10-minute countdown
-  startOTPCountdown(10 * 60);
-}
-
-function startOTPCountdown(seconds) {
-  // Clear any previous timer
-  if (otpCountdownInterval) clearInterval(otpCountdownInterval);
-
-  const timerEl   = document.getElementById('otpTimer');
-  const displayEl = document.getElementById('otpTimerDisplay');
-  const expiredEl = document.getElementById('otpExpiredMsg');
-  const submitBtn = document.getElementById('otpSubmitBtn');
-
-  if (timerEl) timerEl.classList.remove('otp-timer-expired');
-
-  let remaining = seconds;
-
-  const tick = () => {
-    const mins = String(Math.floor(remaining / 60)).padStart(2, '0');
-    const secs = String(remaining % 60).padStart(2, '0');
-    if (displayEl) displayEl.textContent = `${mins}:${secs}`;
-
-    if (remaining <= 0) {
-      clearInterval(otpCountdownInterval);
-      // Mark expired UI
-      if (timerEl) timerEl.classList.add('otp-timer-expired');
-      if (displayEl) displayEl.textContent = '00:00';
-      if (expiredEl) expiredEl.classList.remove('d-none');
-      if (submitBtn) submitBtn.disabled = true;
-      // Disable OTP inputs
-      document.querySelectorAll('.otp-dot').forEach(i => i.disabled = true);
-      return;
-    }
-    remaining--;
-  };
-
-  tick(); // run immediately
-  otpCountdownInterval = setInterval(tick, 1000);
-}
-
-// Auto-focus next OTP input + numeric-only enforcement
-document.querySelectorAll('.otp-dot').forEach((input, index, inputs) => {
-  input.addEventListener('input', () => {
-    // Keep only last digit; filter non-numeric
-    input.value = input.value.replace(/\D/g, '').slice(-1);
-    if (input.value && index < inputs.length - 1) {
-      inputs[index + 1].focus();
-    }
-  });
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Backspace' && !input.value && index > 0) {
-      inputs[index - 1].focus();
-    }
-  });
-  // Allow paste of full OTP into first box
-  input.addEventListener('paste', (e) => {
-    e.preventDefault();
-    const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
-    [...inputs].forEach((inp, i) => { inp.value = pasted[i] || ''; });
-    inputs[Math.min(pasted.length, inputs.length) - 1]?.focus();
-  });
-});
-
-document.getElementById('otpForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const dots  = document.querySelectorAll('.otp-dot');
-  const otp   = Array.from(dots).map(d => d.value).join('');
-  const errEl = document.getElementById('otpError');
-  errEl.classList.add('d-none');
-
-  if (otp.length !== 6) return showError(errEl, 'Please enter all 6 digits');
-
-  try {
-    const res = await api.post('/auth/verify-otp', { email: otpEmail, otp });
-    if (res.access_token) {
-      if (otpCountdownInterval) clearInterval(otpCountdownInterval);
-      handleAuthSuccess(res);
-      toast('✅ Email verified! Welcome to SAKHI.', 'success');
-    } else {
-      // Handle OTP expiry flag from backend
-      if (res.expired) {
-        document.getElementById('otpExpiredMsg')?.classList.remove('d-none');
-        document.getElementById('otpSubmitBtn').disabled = true;
-        document.querySelectorAll('.otp-dot').forEach(i => i.disabled = true);
-      }
-      showError(errEl, res.error || 'Verification failed');
-    }
-  } catch (err) {
-    showError(errEl, 'Error verifying OTP. Please try again.');
-  }
-});
-
-async function resendOTP() {
-  if (!otpEmail) return;
-
-  const link      = document.getElementById('resendOtpLink');
-  const coolEl    = document.getElementById('resendCooldown');
-  const countEl   = document.getElementById('resendCountdown');
-  const expiredEl = document.getElementById('otpExpiredMsg');
-  const errEl     = document.getElementById('otpError');
-
-  // Apply 60-second cooldown on the resend link
-  if (link) link.style.pointerEvents = 'none';
-  if (coolEl) coolEl.classList.remove('d-none');
-
-  let cd = 60;
-  if (countEl) countEl.textContent = cd;
-  const cdInterval = setInterval(() => {
-    cd--;
-    if (countEl) countEl.textContent = cd;
-    if (cd <= 0) {
-      clearInterval(cdInterval);
-      if (link) link.style.pointerEvents = '';
-      if (coolEl) coolEl.classList.add('d-none');
-    }
-  }, 1000);
-
-  try {
-    toast('Sending new code...', 'info');
-    const res = await api.post('/auth/resend-otp', { email: otpEmail });
-    if (res.message) {
-      toast('✉️ New code sent! Check your inbox.', 'success');
-      // Re-enable form and restart timer
-      if (expiredEl) expiredEl.classList.add('d-none');
-      if (errEl) errEl.classList.add('d-none');
-      document.getElementById('otpSubmitBtn')?.removeAttribute('disabled');
-      document.querySelectorAll('.otp-dot').forEach(i => { i.disabled = false; i.value = ''; });
-      document.querySelectorAll('.otp-dot')[0]?.focus();
-      startOTPCountdown(10 * 60);
-    } else {
-      toast(res.error || 'Failed to resend code.', 'danger');
-    }
-  } catch (err) {
-    toast('Failed to resend. Please try again.', 'danger');
-  }
-}
 
 function handleAuthSuccess(res) {
   accessToken = res.access_token;

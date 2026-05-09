@@ -233,52 +233,6 @@
     </div>
   </section>
 
-  
-  <!-- ── OTP VERIFICATION ─────────────────────────────────────────────────── -->
-  <section id="otp-verify" class="auth-section d-none">
-    <div class="container">
-      <div class="auth-card mx-auto text-center">
-        <div class="auth-header">
-          <i class="fas fa-envelope-open-text fa-3x text-pink mb-3"></i>
-          <h2 class="fw-bold">Verify Your Email</h2>
-          <p class="opacity-75">We've sent a 6-digit code to <br><strong id="otpEmailDisplay">...</strong></p>
-        </div>
-        <!-- Countdown Timer -->
-        <div class="d-flex justify-content-center mb-2">
-          <div id="otpTimer" class="otp-timer-badge">
-            <i class="fas fa-clock me-1"></i>Code expires in <span id="otpTimerDisplay">10:00</span>
-          </div>
-        </div>
-        <!-- Expired Warning -->
-        <div id="otpExpiredMsg" class="alert alert-warning d-none mx-4 py-2 small">
-          <i class="fas fa-exclamation-triangle me-1"></i>
-          Your code has expired. Click <strong>Resend Code</strong> to get a new one.
-        </div>
-        <form id="otpForm" class="p-4">
-          <div class="mb-4">
-            <div class="d-flex justify-content-center gap-2" id="otpInputContainer">
-              <input type="text" maxlength="1" class="form-control form-control-lg otp-dot" required>
-              <input type="text" maxlength="1" class="form-control form-control-lg otp-dot" required>
-              <input type="text" maxlength="1" class="form-control form-control-lg otp-dot" required>
-              <input type="text" maxlength="1" class="form-control form-control-lg otp-dot" required>
-              <input type="text" maxlength="1" class="form-control form-control-lg otp-dot" required>
-              <input type="text" maxlength="1" class="form-control form-control-lg otp-dot" required>
-            </div>
-            <input type="hidden" id="otpFullValue">
-          </div>
-          <div id="otpError" class="alert alert-danger d-none"></div>
-          <button type="submit" id="otpSubmitBtn" class="btn btn-pink w-100 btn-lg mb-3">
-            <i class="fas fa-check-circle me-2"></i>Verify &amp; Create Account
-          </button>
-          <p class="text-center small">Didn't receive the code?
-            <a href="#" class="text-pink fw-bold" id="resendOtpLink" onclick="resendOTP()">Resend Code</a>
-            <span id="resendCooldown" class="text-muted small d-none">(wait <span id="resendCountdown">60</span>s)</span>
-          </p>
-          <a href="#" class="text-muted small" onclick="showSection('login')">Back to Login</a>
-        </form>
-      </div>
-    </div>
-  </section>
 
   <!-- ── MAIN DASHBOARD (shown after login) ────────────────────────────────── -->
   <section id="dashboard" class="dashboard-section d-none">
