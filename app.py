@@ -6,12 +6,15 @@ Author: BCA Final Year Project
 
 import os
 import logging
+from dotenv import load_dotenv
+# Load environment variables FIRST before loading Config
+load_dotenv()
+
 from flask import Flask, request, jsonify
 from flask_jwt_extended import JWTManager
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_cors import CORS
-from dotenv import load_dotenv
 
 from config import Config
 from extensions import db
@@ -22,9 +25,6 @@ from blueprints.admin import admin_bp
 from blueprints.chatbot import chatbot_bp
 from blueprints.community import community_bp
 from blueprints.ai_module import ai_bp
-
-# Load environment variables
-load_dotenv()
 
 def create_app(config_class=Config):
     """Application factory pattern for scalability."""
