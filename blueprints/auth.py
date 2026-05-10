@@ -10,12 +10,47 @@ import random
 import requests
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, current_app
+import smtplib
+from email.message import EmailMessage
 from flask_jwt_extended import (
     create_access_token, create_refresh_token,
     jwt_required, get_jwt_identity, get_jwt
 )
 from extensions import db
 from models import User
+
+auth_bp = Blueprint("auth", __name__)
+logger = logging.getLogger(__name__)
+
+def send_otp_email(to_email, otp_code):
+    try:
+        sender_email = current_app.config.get("MAIL_USERNAME")
+        sender_password = current_app.config.get("MAIL_PASSWORD")
+        smtp_server = current_app.config.get("MAIL_SERVER", "smtp.gmail.com")
+        smtp_port = int(current_app.config.get("MAIL_PORT", 587))
+        
+        if not sender_email or not sender_password:
+            logger.warning(f"SMTP not configured. Mocking OTP {otp_code} for {to_email}")
+            print(f"\n==========\n[DEV MODE] OTP for {to_email}: {otp_code}\n==========\n")
+            return True
+
+        msg = EmailMessage()
+        msg['Subject'] = 'Your SAKHI Verification Code'
+        msg['From'] = current_app.config.get("MAIL_DEFAULT_SENDER", sender_email)
+        msg['To'] = to_email
+        msg.set_content(f"Welcome to SAKHI!\n\nYour 6-digit verification code is: {otp_code}\n\nThis code will expire in 10 minutes.\nStay Safe!")
+
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send OTP email: {e}")
+        # Print for dev fallback
+        print(f"\n==========\n[SMTP FAILURE] OTP for {to_email}: {otp_code}\n==========\n")
+        return False
 
 auth_bp = Blueprint("auth", __name__)
 logger = logging.getLogger(__name__)
@@ -73,33 +108,101 @@ def register():
         logger.info(f"Re-registering existing unverified account: {email}")
         user.name = name
         user.phone = phone
-        user.is_email_verified = True
+        user.is_email_verified = False
         user.is_active = True
         user.set_password(password)
     else:
         # Create a brand-new user record
         logger.info(f"Creating new user account: {email}")
-        user = User(name=name, email=email, phone=phone, is_email_verified=True, is_active=True)
+        user = User(name=name, email=email, phone=phone, is_email_verified=False, is_active=True)
         user.set_password(password)
         db.session.add(user)
 
+    # Generate OTP
+    otp_code = str(random.randint(100000, 999999))
+    user.otp_code = otp_code
+    user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+
     try:
         db.session.commit()
-        logger.info(f"User registered successfully: {email} (ID: {user.id})")
+        logger.info(f"User OTP generated successfully: {email} (ID: {user.id})")
     except Exception as e:
         db.session.rollback()
         logger.error(f"DB commit failed during register for {email}: {e}")
         return jsonify({"error": "Internal server error. Please try again."}), 500
 
+    send_otp_email(email, otp_code)
+
+    return jsonify({
+        "message": "OTP sent",
+        "email": email
+    }), 200
+
+# ─── Verify OTP ───────────────────────────────────────────────────────────────
+@auth_bp.route("/verify-otp", methods=["POST"])
+def verify_otp():
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email", "")).strip().lower()
+    otp = str(data.get("otp", "")).strip()
+
+    if not email or not otp:
+        return jsonify({"error": "Email and OTP required"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if user.is_email_verified:
+        return jsonify({"error": "Email already verified"}), 400
+
+    if user.otp_code != otp:
+        return jsonify({"error": "Invalid OTP"}), 401
+
+    if not user.otp_expiry or datetime.utcnow() > user.otp_expiry:
+        return jsonify({"error": "OTP has expired"}), 401
+
+    # Mark as verified
+    user.is_email_verified = True
+    user.otp_code = None
+    user.otp_expiry = None
+    db.session.commit()
+
+    # Generate tokens
     access_token  = create_access_token(identity=str(user.id), additional_claims={"role": user.role})
     refresh_token = create_refresh_token(identity=str(user.id))
 
+    logger.info(f"User verified via OTP: {email}")
     return jsonify({
-        "message": "Registration successful",
+        "message": "Verification successful",
         "access_token": access_token,
         "refresh_token": refresh_token,
         "user": user.to_dict()
     }), 200
+
+# ─── Resend OTP ───────────────────────────────────────────────────────────────
+@auth_bp.route("/resend-otp", methods=["POST"])
+def resend_otp():
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email", "")).strip().lower()
+
+    if not email:
+        return jsonify({"error": "Email required"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if user.is_email_verified:
+        return jsonify({"error": "Email already verified"}), 400
+
+    otp_code = str(random.randint(100000, 999999))
+    user.otp_code = otp_code
+    user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+    db.session.commit()
+
+    send_otp_email(email, otp_code)
+
+    return jsonify({"message": "OTP resent"}), 200
 
 
 # ─── Google Login/Register ────────────────────────────────────────────────────
@@ -177,6 +280,9 @@ def login():
 
     if not user.is_active:
         return jsonify({"error": "Account deactivated. Contact admin."}), 403
+
+    if not user.is_email_verified:
+        return jsonify({"error": "Please verify your email via OTP first."}), 403
 
 
 

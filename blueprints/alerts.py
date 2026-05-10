@@ -108,18 +108,12 @@ def process_sos_background(app, alert_id, data):
             "from_number": app.config["TWILIO_PHONE_NUMBER"]
         }
 
-        if not twilio_config["account_sid"] or not twilio_config["auth_token"]:
-            logger.error(f"Twilio not configured for background Alert #{alert_id}")
-            return
-
         def dispatch_alert(contact, method="sms"):
             """Thread-safe worker to send SMS or Call."""
             phone = "".join(contact.phone.split())
             try:
-                from twilio.rest import Client
-                client = Client(twilio_config["account_sid"], twilio_config["auth_token"])
-                from_num = twilio_config["from_number"]
-                
+                body = ""
+                twiml = ""
                 if method == "sms":
                     # Smart Location Formatting: Handle missing GPS
                     if alert.latitude and alert.longitude:
@@ -169,16 +163,29 @@ def process_sos_background(app, alert_id, data):
                             f"Time: {time_str}\n"
                             f"Msg: {alert.message}")
                     
-                    logger.info(f"Sending SOS SMS to {phone}: {body}")
+                    logger.info(f"Prepared SOS SMS to {phone}: {body}")
+                else:
+                    twiml = f"<Response><Say>SOS! Emergency alert from {user_name}. Check your phone for location.</Say></Response>"
+                
+                if not twilio_config["account_sid"] or not twilio_config["auth_token"]:
+                    logger.warning(f"Twilio not configured. [DEV MODE] Simulated {method} to {phone}:\n{body if method == 'sms' else twiml}")
+                    print(f"\n==========\n[DEV MODE] Simulated {method.upper()} to {phone}:\n{body if method == 'sms' else twiml}\n==========\n")
+                    return phone
+
+                from twilio.rest import Client
+                client = Client(twilio_config["account_sid"], twilio_config["auth_token"])
+                from_num = twilio_config["from_number"]
+
+                if method == "sms":
                     client.messages.create(body=body, from_=from_num, to=phone)
                     logger.info(f"Parallel SMS sent to {phone}")
                 else:
-                    twiml = f"<Response><Say>SOS! Emergency alert from {user_name}. Check your phone for location.</Say></Response>"
                     client.calls.create(twiml=twiml, to=phone, from_=from_num)
                     logger.info(f"Parallel Call initiated for {phone}")
                 return phone
             except Exception as e:
                 logger.error(f"Background {method} failed for {phone}: {e}")
+                print(f"\n==========\n[TWILIO FAILURE] Simulated {method.upper()} to {phone}:\n{body if method == 'sms' else 'VOICE CALL'}\n==========\n")
                 return None
 
         # Fan-out: Every notification (SMS and Voice) for Every contact runs in its own thread

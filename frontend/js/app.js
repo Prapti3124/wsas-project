@@ -176,15 +176,30 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   e.preventDefault();
   const errEl = document.getElementById('registerError');
   errEl.classList.add('d-none');
+  
+  const password = document.getElementById('regPassword').value;
+  const pwStrength = getPasswordStrength(password);
+  
+  if (pwStrength.score < 4) {
+    showError(errEl, 'Password is too weak. Please ensure it meets all requirements.');
+    return;
+  }
+
   const body = {
     name:     document.getElementById('regName').value,
     email:    document.getElementById('regEmail').value,
-    password: document.getElementById('regPassword').value,
+    password: password,
     phone:    document.getElementById('regPhone').value,
   };
   try {
     const res = await api.post('/auth/register', body);
-    if (res.access_token) {
+    if (res.message === 'OTP sent') {
+      pendingOtpEmail = body.email;
+      showSection('verify-otp');
+      startOtpTimer();
+      toast('OTP sent to your email', 'info');
+    } else if (res.access_token) {
+      // Fallback if OTP is bypassed
       handleAuthSuccess(res);
     } else {
       if (res.details) {
@@ -197,6 +212,71 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     showError(errEl, 'Registration failed. Please try again.');
   }
 });
+
+/* ────────────────── OTP VERIFICATION ────────────────────────────────────── */
+let pendingOtpEmail = null;
+let otpInterval = null;
+
+function startOtpTimer() {
+  const timerEl = document.getElementById('otpTimer');
+  const resendBtn = document.getElementById('resendOtpBtn');
+  resendBtn.classList.add('d-none');
+  
+  let timeRemaining = 600; // 10 minutes
+  
+  clearInterval(otpInterval);
+  otpInterval = setInterval(() => {
+    timeRemaining--;
+    if (timeRemaining <= 0) {
+      clearInterval(otpInterval);
+      timerEl.textContent = '00:00';
+      resendBtn.classList.remove('d-none');
+    } else {
+      const m = String(Math.floor(timeRemaining / 60)).padStart(2, '0');
+      const s = String(timeRemaining % 60).padStart(2, '0');
+      timerEl.textContent = `${m}:${s}`;
+    }
+  }, 1000);
+}
+
+document.getElementById('verifyOtpForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const code = document.getElementById('otpCode').value;
+  const errEl = document.getElementById('otpError');
+  errEl.classList.add('d-none');
+  
+  try {
+    const res = await api.post('/auth/verify-otp', { email: pendingOtpEmail, otp: code });
+    if (res.access_token) {
+      document.getElementById('otpSuccess').classList.remove('d-none');
+      document.getElementById('otpSuccess').textContent = 'Verification successful!';
+      clearInterval(otpInterval);
+      setTimeout(() => handleAuthSuccess(res), 1000);
+    } else {
+      showError(errEl, res.error || 'Verification failed');
+    }
+  } catch (err) {
+    showError(errEl, 'Network error. Please try again.');
+  }
+});
+
+async function resendOtp() {
+  if (!pendingOtpEmail) return;
+  const errEl = document.getElementById('otpError');
+  errEl.classList.add('d-none');
+  
+  try {
+    const res = await api.post('/auth/resend-otp', { email: pendingOtpEmail });
+    if (res.message) {
+      toast('A new OTP has been sent!', 'success');
+      startOtpTimer();
+    } else {
+      showError(errEl, res.error || 'Failed to resend OTP');
+    }
+  } catch (err) {
+    showError(errEl, 'Network error.');
+  }
+}
 
 /* ────────────────── PASSWORD STRENGTH METER ────────────────────────────── */
 function getPasswordStrength(pw) {
@@ -410,9 +490,13 @@ function initDashboard() {
     document.getElementById('userNameDisplay').textContent = currentUser.name;
     
     // Show admin panel link if role is admin
-    if (currentUser.role === 'admin') {
-      const adminNav = document.getElementById('navAdminPanel');
-      if (adminNav) adminNav.classList.remove('d-none');
+    const adminNav = document.getElementById('navAdminPanel');
+    if (adminNav) {
+      if (currentUser.role === 'admin') {
+        adminNav.classList.remove('d-none');
+      } else {
+        adminNav.classList.add('d-none');
+      }
     }
   }
 
