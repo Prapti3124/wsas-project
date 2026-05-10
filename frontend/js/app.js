@@ -197,7 +197,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       pendingOtpEmail = body.email;
       showSection('verify-otp');
       startOtpTimer();
-      toast('OTP sent to your email', 'info');
+      console.log('OTP sent to your email');
     } else if (res.access_token) {
       // Fallback if OTP is bypassed
       handleAuthSuccess(res);
@@ -268,7 +268,7 @@ async function resendOtp() {
   try {
     const res = await api.post('/auth/resend-otp', { email: pendingOtpEmail });
     if (res.message) {
-      toast('A new OTP has been sent!', 'success');
+      console.log('A new OTP has been sent!');
       startOtpTimer();
     } else {
       showError(errEl, res.error || 'Failed to resend OTP');

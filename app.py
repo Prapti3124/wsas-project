@@ -101,7 +101,28 @@ def create_app(config_class=Config):
     # ── Create DB Tables ─────────────────────────────────────────────────────
     with app.app_context():
         db.create_all()
-        _seed_admin()
+        
+        # Safely attempt to add new columns to existing databases (e.g. Render PostgreSQL)
+        try:
+            from sqlalchemy import text
+            db.session.execute(text("ALTER TABLE users ADD COLUMN otp_code VARCHAR(10)"))
+            db.session.commit()
+            app.logger.info("Added otp_code column to users table")
+        except Exception:
+            db.session.rollback()
+
+        try:
+            from sqlalchemy import text
+            db.session.execute(text("ALTER TABLE users ADD COLUMN otp_expiry TIMESTAMP"))
+            db.session.commit()
+            app.logger.info("Added otp_expiry column to users table")
+        except Exception:
+            db.session.rollback()
+
+        try:
+            _seed_admin()
+        except Exception as e:
+            app.logger.error(f"Failed to seed admin: {e}")
 
     return app
 
