@@ -24,7 +24,34 @@ logger = logging.getLogger(__name__)
 
 def send_otp_email(to_email, otp_code):
     try:
-        sender_email = current_app.config.get("MAIL_USERNAME")
+        brevo_api_key = current_app.config.get("BREVO_API_KEY")
+        sender_email = current_app.config.get("MAIL_USERNAME", "sakhisafety@gmail.com")
+        sender_name = "SAKHI Safety"
+        
+        # ─── Brevo HTTP API (Bypasses Render SMTP Block) ───
+        if brevo_api_key:
+            url = "https://api.brevo.com/v3/smtp/email"
+            headers = {
+                "accept": "application/json",
+                "api-key": brevo_api_key,
+                "content-type": "application/json"
+            }
+            payload = {
+                "sender": {"name": sender_name, "email": sender_email},
+                "to": [{"email": to_email}],
+                "subject": "Your SAKHI Verification Code",
+                "htmlContent": f"<p>Welcome to SAKHI!</p><p>Your 6-digit verification code is: <strong style='font-size:24px;letter-spacing:4px;'>{otp_code}</strong></p><p>This code will expire in 10 minutes.</p><p>Stay Safe!</p>"
+            }
+            resp = requests.post(url, headers=headers, json=payload, timeout=10)
+            if resp.status_code in [201, 202, 200]:
+                logger.info(f"OTP sent to {to_email} via Brevo API")
+                return True
+            else:
+                logger.error(f"Brevo API error: {resp.text}")
+                print(f"\n==========\n[BREVO FAILURE] OTP for {to_email}: {otp_code}\n==========\n")
+                return False
+
+        # ─── Fallback to Standard SMTP (Local Dev) ───
         sender_password = current_app.config.get("MAIL_PASSWORD")
         smtp_server = current_app.config.get("MAIL_SERVER", "smtp.gmail.com")
         smtp_port = int(current_app.config.get("MAIL_PORT", 587))
@@ -36,7 +63,7 @@ def send_otp_email(to_email, otp_code):
 
         msg = EmailMessage()
         msg['Subject'] = 'Your SAKHI Verification Code'
-        msg['From'] = current_app.config.get("MAIL_DEFAULT_SENDER", sender_email)
+        msg['From'] = current_app.config.get("MAIL_DEFAULT_SENDER", f"SAKHI Safety <{sender_email}>")
         msg['To'] = to_email
         msg.set_content(f"Welcome to SAKHI!\n\nYour 6-digit verification code is: {otp_code}\n\nThis code will expire in 10 minutes.\nStay Safe!")
 
@@ -49,7 +76,7 @@ def send_otp_email(to_email, otp_code):
     except Exception as e:
         logger.error(f"Failed to send OTP email: {e}")
         # Print for dev fallback
-        print(f"\n==========\n[SMTP FAILURE] OTP for {to_email}: {otp_code}\n==========\n")
+        print(f"\n==========\n[EMAIL FAILURE] OTP for {to_email}: {otp_code}\n==========\n")
         return False
 
 auth_bp = Blueprint("auth", __name__)
