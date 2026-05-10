@@ -40,7 +40,7 @@ def send_otp_email(to_email, otp_code):
         msg['To'] = to_email
         msg.set_content(f"Welcome to SAKHI!\n\nYour 6-digit verification code is: {otp_code}\n\nThis code will expire in 10 minutes.\nStay Safe!")
 
-        server = smtplib.SMTP(smtp_server, smtp_port)
+        server = smtplib.SMTP(smtp_server, smtp_port, timeout=5)
         server.starttls()
         server.login(sender_email, sender_password)
         server.send_message(msg)
