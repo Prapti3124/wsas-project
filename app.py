@@ -92,6 +92,9 @@ def create_app(config_class=Config):
 
     @app.errorhandler(Exception)
     def handle_exception(e):
+        from werkzeug.exceptions import HTTPException
+        if isinstance(e, HTTPException):
+            return e
         # Log the full exception
         app.logger.error(f"Unhandled Exception: {e}", exc_info=True)
         if request.path.startswith('/api/'):

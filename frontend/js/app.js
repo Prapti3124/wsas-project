@@ -833,17 +833,23 @@ async function triggerSOS(type = 'manual') {
         message: 'help me i am in danger.'
       });
 
-      const count = res.contacts_count !== undefined ? res.contacts_count : (res.notified_contacts || 0);
+      const count = res.contacts_count ?? 0;
 
       if (count === 0) {
-        statusEl.innerHTML = `<span class="badge bg-warning text-dark">⚠️ Alert recorded, but no contacts registered</span>`;
-        toast(`⚠️ SOS recorded, but you have no emergency contacts!`, 'warning');
-      } else if (res.notified_contacts === 0 && res.errors && res.errors.length > 0) {
-        statusEl.innerHTML = `<span class="badge bg-warning text-dark">⚠️ Alert recorded, but SMS/Voice failed</span>`;
-        toast(`⚠️ SOS record created, but notification failed.`, 'warning');
+        // No emergency contacts — SMS will NOT be sent. Warn the user.
+        statusEl.innerHTML = `
+          <div class="text-center">
+            <span class="badge bg-warning text-dark mb-2" style="font-size:0.85rem;">⚠️ SOS Recorded — But No Contacts!</span>
+            <div class="small text-warning mt-1">You have no emergency contacts saved.<br>Go to <strong>Contacts</strong> tab and add phone numbers so SMS alerts can be sent.</div>
+          </div>`;
+        toast('⚠️ SOS sent but you have NO emergency contacts! Add contacts to get SMS alerts.', 'warning');
       } else {
-        statusEl.innerHTML = `<span class="badge bg-success">✓ Alert sent to ${count} contacts</span>`;
-        toast(`🚨 SOS sent! ${count} contacts notified.`, 'danger');
+        statusEl.innerHTML = `
+          <div class="text-center">
+            <span class="badge bg-success mb-2" style="font-size:0.85rem;">🚨 SOS Triggered!</span>
+            <div class="small text-success mt-1">Sending SMS + Call to <strong>${count}</strong> contact${count > 1 ? 's' : ''}...<br><span class="opacity-75">Messages arrive within a few seconds.</span></div>
+          </div>`;
+        toast(`🚨 SOS sent! Notifying ${count} contact${count > 1 ? 's' : ''} via SMS & call.`, 'danger');
       }
 
       setTimeout(() => overlay.classList.add('d-none'), 5000);

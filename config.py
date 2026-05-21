@@ -38,11 +38,6 @@ class Config:
     TWILIO_AUTH_TOKEN   = os.getenv("TWILIO_AUTH_TOKEN",   "").strip()
     TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "").strip()
 
-    # ── Plivo ─────────────────────────────────────────────────────────────────
-    PLIVO_AUTH_ID      = os.getenv("PLIVO_AUTH_ID",      "").strip()
-    PLIVO_AUTH_TOKEN   = os.getenv("PLIVO_AUTH_TOKEN",   "").strip()
-    PLIVO_PHONE_NUMBER = os.getenv("PLIVO_PHONE_NUMBER", "").strip()
-
     # ── Google OAuth ──────────────────────────────────────────────────────────
     GOOGLE_CLIENT_ID    = os.getenv("GOOGLE_CLIENT_ID",    "")
     GOOGLE_CLIENT_SECRET= os.getenv("GOOGLE_CLIENT_SECRET", "")
