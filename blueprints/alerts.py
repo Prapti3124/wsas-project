@@ -63,11 +63,15 @@ def trigger_sos():
 
     logger.info(f"SOS Alert #{alert.id} accepted for processing for user {user_id}.")
 
+    contacts_count = EmergencyContact.query.filter_by(user_id=user_id).count()
+
     return jsonify({
         "message": "SOS Alert triggered and processing in background.",
         "alert": alert.to_dict(),
-        "status": "processing"
+        "status": "processing",
+        "contacts_count": contacts_count
     }), 201
+
 
 
 def process_sos_background(app, alert_id, data):
@@ -106,6 +110,12 @@ def process_sos_background(app, alert_id, data):
             "account_sid": app.config["TWILIO_ACCOUNT_SID"],
             "auth_token":  app.config["TWILIO_AUTH_TOKEN"],
             "from_number": app.config["TWILIO_PHONE_NUMBER"]
+        }
+
+        plivo_config = {
+            "auth_id":     app.config["PLIVO_AUTH_ID"],
+            "auth_token":  app.config["PLIVO_AUTH_TOKEN"],
+            "from_number": app.config["PLIVO_PHONE_NUMBER"]
         }
 
         def dispatch_alert(contact, method="sms"):
@@ -167,25 +177,45 @@ def process_sos_background(app, alert_id, data):
                 else:
                     twiml = f"<Response><Say>SOS! Emergency alert from {user_name}. Check your phone for location.</Say></Response>"
                 
-                if not twilio_config["account_sid"] or not twilio_config["auth_token"]:
-                    logger.warning(f"Twilio not configured. [DEV MODE] Simulated {method} to {phone}:\n{body if method == 'sms' else twiml}")
-                    print(f"\n==========\n[DEV MODE] Simulated {method.upper()} to {phone}:\n{body if method == 'sms' else twiml}\n==========\n")
-                    return phone
-
-                from twilio.rest import Client
-                client = Client(twilio_config["account_sid"], twilio_config["auth_token"])
-                from_num = twilio_config["from_number"]
-
+                # Priority SMS: Plivo -> Twilio -> Simulation
                 if method == "sms":
-                    client.messages.create(body=body, from_=from_num, to=phone)
-                    logger.info(f"Parallel SMS sent to {phone}")
-                else:
-                    client.calls.create(twiml=twiml, to=phone, from_=from_num)
-                    logger.info(f"Parallel Call initiated for {phone}")
-                return phone
+                    if plivo_config["auth_id"] and plivo_config["auth_token"]:
+                        import plivo
+                        client = plivo.RestClient(plivo_config["auth_id"], plivo_config["auth_token"])
+                        from_num = plivo_config["from_number"]
+                        client.messages.create(
+                            src=from_num,
+                            dst=phone,
+                            text=body
+                        )
+                        logger.info(f"Parallel SMS sent to {phone} via Plivo")
+                        return phone
+                    elif twilio_config["account_sid"] and twilio_config["auth_token"]:
+                        from twilio.rest import Client
+                        client = Client(twilio_config["account_sid"], twilio_config["auth_token"])
+                        from_num = twilio_config["from_number"]
+                        client.messages.create(body=body, from_=from_num, to=phone)
+                        logger.info(f"Parallel SMS sent to {phone} via Twilio")
+                        return phone
+                    else:
+                        logger.warning(f"No SMS gateway configured. [DEV MODE] Simulated SMS to {phone}:\n{body}")
+                        print(f"\n==========\n[DEV MODE] Simulated SMS to {phone}:\n{body}\n==========\n")
+                        return phone
+                else:  # Call
+                    if twilio_config["account_sid"] and twilio_config["auth_token"]:
+                        from twilio.rest import Client
+                        client = Client(twilio_config["account_sid"], twilio_config["auth_token"])
+                        from_num = twilio_config["from_number"]
+                        client.calls.create(twiml=twiml, to=phone, from_=from_num)
+                        logger.info(f"Parallel Call initiated for {phone}")
+                        return phone
+                    else:
+                        logger.warning(f"Twilio not configured for calls. [DEV MODE] Simulated Call to {phone}:\n{twiml}")
+                        print(f"\n==========\n[DEV MODE] Simulated Call to {phone}:\n{twiml}\n==========\n")
+                        return phone
             except Exception as e:
                 logger.error(f"Background {method} failed for {phone}: {e}")
-                print(f"\n==========\n[TWILIO FAILURE] Simulated {method.upper()} to {phone}:\n{body if method == 'sms' else 'VOICE CALL'}\n==========\n")
+                print(f"\n==========\n[GATEWAY FAILURE] Simulated {method.upper()} to {phone}:\n{body if method == 'sms' else 'VOICE CALL'}\n==========\n")
                 return None
 
         # Fan-out: Every notification (SMS and Voice) for Every contact runs in its own thread

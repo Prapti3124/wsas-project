@@ -833,11 +833,15 @@ async function triggerSOS(type = 'manual') {
         message: 'help me i am in danger.'
       });
 
-      if (res.notified_contacts === 0 && res.errors && res.errors.length > 0) {
+      const count = res.contacts_count !== undefined ? res.contacts_count : (res.notified_contacts || 0);
+
+      if (count === 0) {
+        statusEl.innerHTML = `<span class="badge bg-warning text-dark">⚠️ Alert recorded, but no contacts registered</span>`;
+        toast(`⚠️ SOS recorded, but you have no emergency contacts!`, 'warning');
+      } else if (res.notified_contacts === 0 && res.errors && res.errors.length > 0) {
         statusEl.innerHTML = `<span class="badge bg-warning text-dark">⚠️ Alert recorded, but SMS/Voice failed</span>`;
         toast(`⚠️ SOS record created, but notification failed.`, 'warning');
       } else {
-        const count = res.notified_contacts || 0;
         statusEl.innerHTML = `<span class="badge bg-success">✓ Alert sent to ${count} contacts</span>`;
         toast(`🚨 SOS sent! ${count} contacts notified.`, 'danger');
       }
