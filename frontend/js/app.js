@@ -884,7 +884,7 @@ function triggerOfflineSOS() {
   if (currentLat && currentLon) {
     const lat7 = currentLat.toFixed(7);
     const lon7 = currentLon.toFixed(7);
-    mapsUrl     = `https://maps.google.com/?q=${lat7},${lon7}`;
+    mapsUrl     = `https://maps.google.com/?q=${lat7}%2C${lon7}`;
     locationStr = mapsUrl;
   }
 

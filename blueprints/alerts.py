@@ -145,7 +145,7 @@ def process_sos_background(app, alert_id, data):
                     if alert.latitude and alert.longitude:
                         lat_str = f"{alert.latitude:.7f}"
                         lon_str = f"{alert.longitude:.7f}"
-                        maps_url = f"https://maps.google.com/?q={lat_str},{lon_str}"
+                        maps_url = f"https://maps.google.com/?q={lat_str}%2C{lon_str}"
                         accuracy = data.get("accuracy")
                         acc_line = f"Accuracy: {round(accuracy)}m\n" if accuracy else ""
 
